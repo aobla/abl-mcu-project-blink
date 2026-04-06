@@ -35,6 +35,12 @@ target_include_directories(target_init PUBLIC
     ${TARGET_INCLUDES}
     ${platformcore_SOURCE_DIR}/target/common
     ${platformcore_SOURCE_DIR}/hal/include
+    ${CMAKE_BINARY_DIR}/generated
+)
+
+# Platform define
+target_compile_definitions(target_init PRIVATE
+    PLATFORM_${PLATFORM}
 )
 
 # Include paths для сгенерированных файлов (hardware_config.h, hardware_pins.h)

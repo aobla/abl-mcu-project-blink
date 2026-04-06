@@ -31,7 +31,25 @@ log_ok() {
     echo -e "${GREEN}[OK]${NC} $1"
 }
 
-# ─── Toolchain check ─────────────────────────────────────────────────────────
+# ─── Dependency check ────────────────────────────────────────────────────────
+
+check_git_deps() {
+    # Check if platform-core is available
+    local core_path=""
+
+    if [[ -n "$ABL_DEPS_PATH" && -d "$ABL_DEPS_PATH/abl-mcu-platform-core" ]]; then
+        core_path="$ABL_DEPS_PATH/abl-mcu-platform-core"
+    elif [[ -d "$SCRIPT_DIR/lib/abl-mcu-platform-core" ]]; then
+        core_path="$SCRIPT_DIR/lib/abl-mcu-platform-core"
+    fi
+
+    if [[ -n "$core_path" ]]; then
+        log_ok "Git dependency found: abl-mcu-platform-core at $core_path"
+        return 0
+    else
+        return 1
+    fi
+}
 
 # Map platform name to toolchain binary and search paths
 get_toolchain_info() {
@@ -195,6 +213,13 @@ fi
 
 log_info "Building project for platform: $PLATFORM"
 log_info "Build type: $BUILD_TYPE"
+
+# Проверка git-зависимостей (core, drivers, etc.)
+if ! check_git_deps; then
+    log_warn "Git dependencies not found in lib/"
+    log_info "Fetching via CMake FetchContent — consider running first:"
+    log_info "  ./setup.sh -d"
+fi
 
 # Проверка тулчейна
 if ! check_toolchain "$PLATFORM"; then

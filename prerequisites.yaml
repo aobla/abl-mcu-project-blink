@@ -1,6 +1,12 @@
 # Prerequisites for ABL MCU Project Blink
 # Used by setup.sh to check and install dependencies
+#
+# Resolution order:
+#   1. ABL_DEPS_PATH env var → $ABL_DEPS_PATH/<name>/
+#   2. project/lib/<name>/
+#   3. ~/.local/share/abl-mcu-deps/<name>/
 
+# ─── Common build tools ──────────────────────────────────────────────────────
 common:
   - name: cmake
     check:
@@ -46,6 +52,57 @@ common:
       - pyyaml>=5.4.0
       - jinja2>=3.0.0
 
+  - name: git
+    check:
+      binary: git
+      version_flag: "--version"
+      version_regex: "git version ([0-9]+\\.[0-9]+\\.[0-9]+)"
+      min_version: "2.20"
+    packages:
+      debian: git
+      ubuntu: git
+      arch: git
+      fedora: git
+      macos: git
+
+  - name: curl
+    check:
+      binary: curl
+      version_flag: "--version"
+      version_regex: "curl ([0-9]+\\.[0-9]+\\.[0-9]+)"
+      min_version: "7.0"
+    packages:
+      debian: curl
+      ubuntu: curl
+      arch: curl
+      fedora: curl
+      macos: curl
+
+# ─── Git dependencies (core, drivers, system) ────────────────────────────────
+# Downloaded to lib/<dest>/ in project directory by default.
+dependencies:
+  platform-core:
+    git:
+      url: "https://github.com/aobla/abl-mcu-platform-core.git"
+      tag: "dev"
+    dest: "lib/abl-mcu-platform-core"
+    required: true
+
+  # drivers:
+  #   git:
+  #     url: "https://github.com/myorg/abl-mcu-drivers.git"
+  #     tag: "v1.0.0"
+  #   dest: "lib/abl-mcu-drivers"
+  #   required: false
+
+  # system:
+  #   git:
+  #     url: "https://github.com/myorg/abl-mcu-system.git"
+  #     tag: "v1.0.0"
+  #   dest: "lib/abl-mcu-system"
+  #   required: false
+
+# ─── Platform toolchains (cross-compilers) ───────────────────────────────────
 platforms:
   stm32:
     - name: arm-none-eabi-gcc
@@ -74,6 +131,12 @@ platforms:
           url: "https://developer.arm.com/-/media/Files/downloads/gnu/13.2.rel1/binrel/arm-gnu-toolchain-13.2.rel1-darwin-x86_64-arm-none-eabi.tar.xz"
           archive_type: "tar.xz"
       install_dir: "~/.local/share/abl-mcu-toolchains/arm-none-eabi"
+
+  # SDK mapping: sub-platform → SDK name
+  stm32_sdk_map:
+    stm32f103: stm32f1-hal
+    stm32f4:   stm32f4-hal
+    stm32h743: stm32h7-hal
 
   avr:
     - name: avr-gcc
@@ -110,3 +173,56 @@ platforms:
       install_dir: "~/.local/share/abl-mcu-toolchains/esp-idf"
       install_script: "install.sh"
       export_script: "export.sh"
+
+# ─── SDKs (device-specific HAL libraries) ────────────────────────────────────
+sdks:
+  stm32f1-hal:
+    git:
+      - url: "https://github.com/STMicroelectronics/stm32f1xx-hal-driver.git"
+        tag: "v1.1.10"
+      - url: "https://github.com/STMicroelectronics/cmsis_device_f1.git"
+        tag: "v4.3.5"
+        subdir: "CMSIS/Device"
+      - url: "https://github.com/ARM-software/CMSIS_5.git"
+        tag: "5.9.0"
+        subdir: "CMSIS"
+    install_dir: "~/.local/share/abl-mcu-sdks/stm32f1-hal"
+    cmake_var: STM32F1_HAL_ROOT
+    include_dirs:
+      - "Inc"
+      - "CMSIS/Device/Include"
+      - "CMSIS/CMSIS/Core/Include"
+
+  stm32f4-hal:
+    git:
+      - url: "https://github.com/STMicroelectronics/stm32f4xx-hal-driver.git"
+        tag: "v1.8.5"
+      - url: "https://github.com/STMicroelectronics/cmsis_device_f4.git"
+        tag: "v2.6.11"
+        subdir: "CMSIS/Device"
+      - url: "https://github.com/ARM-software/CMSIS_5.git"
+        tag: "5.9.0"
+        subdir: "CMSIS"
+    install_dir: "~/.local/share/abl-mcu-sdks/stm32f4-hal"
+    cmake_var: STM32F4_HAL_ROOT
+    include_dirs:
+      - "Inc"
+      - "CMSIS/Device/Include"
+      - "CMSIS/CMSIS/Core/Include"
+
+  stm32h7-hal:
+    git:
+      - url: "https://github.com/STMicroelectronics/stm32h7xx-hal-driver.git"
+        tag: "v1.11.6"
+      - url: "https://github.com/STMicroelectronics/cmsis_device_h7.git"
+        tag: "v1.10.7"
+        subdir: "CMSIS/Device"
+      - url: "https://github.com/ARM-software/CMSIS_5.git"
+        tag: "5.9.0"
+        subdir: "CMSIS"
+    install_dir: "~/.local/share/abl-mcu-sdks/stm32h7-hal"
+    cmake_var: STM32H7_HAL_ROOT
+    include_dirs:
+      - "Inc"
+      - "CMSIS/Device/Include"
+      - "CMSIS/CMSIS/Core/Include"

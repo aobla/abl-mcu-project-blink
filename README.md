@@ -101,21 +101,27 @@ int main(void) {
 git clone <repo-url>
 cd abl-mcu-project-blink
 
-# Установка зависимостей для выбранной платформы
-./setup.sh -p stm32     # STM32 (arm-none-eabi-gcc)
-./setup.sh -p avr       # AVR (avr-gcc)
-./setup.sh -p esp32     # ESP32 (ESP-IDF)
-./setup.sh -p stm32 -p avr  # Несколько платформ
+# Установка git-зависимостей (core, drivers, system)
+./setup.sh -d
 
-# Или только проверка без установки
-./setup.sh --check-only -p stm32
+# Установка тулчейна и SDK для платформы
+./setup.sh -p stm32f4      # STM32F4 (arm-none-eabi-gcc + stm32f4-hal)
+./setup.sh -p stm32f103    # STM32F103 + stm32f1-hal
+./setup.sh -p stm32h743    # STM32H743 + stm32h7-hal
+./setup.sh -p avr          # AVR (avr-gcc + avr-libc)
+./setup.sh -p esp32        # ESP32 (ESP-IDF)
+
+# Всё сразу
+./setup.sh -d -p stm32f4
+
+# Только проверка без установки
+./setup.sh --check-only -p stm32f4
 ```
 
 `setup.sh`:
-- Проверяет системные пакеты (apt/pacman/brew)
-- Если тулчейн уже установлен в системе — использует его
-- Скачивает тулчейн в `~/.local/share/abl-mcu-toolchains/` если системного нет
-- Устанавливает Python-зависимости (pyyaml, jinja2)
+- **`-d`** — клонирует `lib/abl-mcu-platform-core/`, `lib/abl-mcu-drivers/` и т.д.
+- **`-p PLATFORM`** — ставит тулчейн + SDK для платформы
+- Приоритет поиска зависимостей: `$ABL_DEPS_PATH` → `project/lib/` → `~/.local/share/abl-mcu-deps/`
 
 ### 2. Сборка
 
@@ -125,13 +131,46 @@ cd abl-mcu-project-blink
 ./build.sh -p esp32 -c    # clean build
 ```
 
-`build.sh` автоматически проверяет наличие тулчейна и подскажет запустить `setup.sh` если его нет.
+`build.sh` автоматически проверяет:
+1. Git-зависимости (lib/abl-mcu-platform-core/)
+2. Тулчейн для платформы
+3. Подскажет `./setup.sh -d` или `./setup.sh -p <platform>` если чего-то нет
 
-### Переопределение пути тулчейна
+### Расположение зависимостей
+
+```
+project-blink/
+├── lib/                              # git-зависимости (setup.sh -d)
+│   ├── abl-mcu-platform-core/        # ядро платформы
+│   ├── abl-mcu-drivers/              # драйверы (опционально)
+│   └── abl-mcu-system/               # системные компоненты (опционально)
+└── config/                           # YAML-конфигурации плат
+
+~/.local/share/
+├── abl-mcu-toolchains/               # кросс-компиляторы
+│   ├── arm-none-eabi/current/        # STM32 тулчейн
+│   ├── avr/current/                  # AVR тулчейн
+│   └── esp-idf/v5.2.2/               # ESP-IDF
+├── abl-mcu-sdks/                     # SDK для конкретных семейств
+│   ├── stm32f1-hal/                  # CMSIS для STM32F1
+│   ├── stm32f4-hal/                  # CMSIS для STM32F4
+│   └── stm32h7-hal/                  # CMSIS для STM32H7
+└── abl-mcu-deps/                     # глобальное хранилище (ABL_DEPS_PATH)
+```
+
+### Переопределение путей
 
 ```bash
-# Использовать конкретный тулчейн
+# Глобальное хранилище зависимостей
+export ABL_DEPS_PATH=~/.local/share/abl-mcu-deps
+./setup.sh -d
+
+# Конкретный тулчейн
 export ABL_TOOLCHAIN_PATH=/opt/my-toolchain
+./build.sh -p stm32f4
+
+# Конкретный SDK
+export STM32F4_HAL_ROOT=/opt/stm32f4-hal
 ./build.sh -p stm32f4
 ```
 
@@ -139,6 +178,12 @@ export ABL_TOOLCHAIN_PATH=/opt/my-toolchain
 1. `$ABL_TOOLCHAIN_PATH/bin/`
 2. Системный PATH (`arm-none-eabi-gcc`, `avr-gcc`, etc.)
 3. `~/.local/share/abl-mcu-toolchains/<platform>/current/bin/`
+
+Приоритет поиска SDK:
+1. CMake cache var (`STM32F4_HAL_ROOT`)
+2. Env var (`$STM32F4_HAL_ROOT`)
+3. `~/.local/share/abl-mcu-sdks/stm32f4-hal/`
+4. `$ABL_DEPS_PATH/stm32f4-hal/`
 
 ## Лицензия
 

@@ -8,6 +8,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PREREQ_FILE="${SCRIPT_DIR}/prerequisites.yaml"
 TOOLCHAIN_BASE_DIR="$HOME/.local/share/abl-mcu-toolchains"
+SDK_BASE_DIR="$HOME/.local/share/abl-mcu-sdks"
+DEPS_BASE_DIR="$HOME/.local/share/abl-mcu-deps"
 
 # Colors
 RED='\033[0;31m'
@@ -31,18 +33,21 @@ Usage: $0 [OPTIONS]
 Install and check prerequisites for ABL MCU projects.
 
 OPTIONS:
-    -p, --platform PLATFORM    Platform to setup (stm32, avr, esp32)
+    -p, --platform PLATFORM    Platform to setup (stm32f4, stm32f103, stm32h743, avr, esp32)
                                Can be specified multiple times
     -a, --all                  Setup all platforms
+    -d, --deps                 Install git dependencies (core, drivers, etc.)
+    --sdk SDK_NAME              Install a specific SDK
     --check-only               Only check, don't install
     --force                    Force reinstall even if found
     -h, --help                 Show this help message
 
 EXAMPLES:
-    $0 -p stm32                Setup STM32 toolchain
-    $0 -p stm32 -p avr         Setup both STM32 and AVR
+    $0 -d                      Install git dependencies (core, drivers)
+    $0 -p stm32f4              Setup STM32F4 toolchain + SDK
+    $0 -p stm32f4 -d           Setup toolchain + SDK + git dependencies
     $0 --check-only            Check all dependencies
-    $0 -a                      Setup all platforms
+    $0 -a -d                   Setup everything
 EOF
 }
 
@@ -51,6 +56,8 @@ PLATFORMS=()
 CHECK_ONLY=false
 FORCE=false
 ALL_PLATFORMS=false
+INSTALL_DEPS=false
+SPECIFIC_SDK=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -61,6 +68,14 @@ while [[ $# -gt 0 ]]; do
         -a|--all)
             ALL_PLATFORMS=true
             shift
+            ;;
+        -d|--deps)
+            INSTALL_DEPS=true
+            shift
+            ;;
+        --sdk)
+            SPECIFIC_SDK="$2"
+            shift 2
             ;;
         --check-only)
             CHECK_ONLY=true
@@ -112,9 +127,7 @@ detect_arch() {
 ARCH=$(detect_arch)
 log_info "Detected architecture: $ARCH"
 
-# ─── YAML parser (lightweight, no external deps beyond python3) ──────────────
-# Uses python3 to parse YAML since it's a prerequisite anyway
-
+# ─── YAML parser (uses python3) ──────────────────────────────────────────────
 yaml_get() {
     local file="$1"
     local query="$2"
@@ -122,7 +135,6 @@ yaml_get() {
 import yaml, sys, json
 with open('$file') as f:
     data = yaml.safe_load(f)
-# Navigate the query (dot-separated)
 keys = '$query'.split('.')
 result = data
 for k in keys:
@@ -164,13 +176,11 @@ else:
 
 # ─── Version comparison ──────────────────────────────────────────────────────
 version_gte() {
-    # Returns 0 if $1 >= $2
     python3 -c "
 from packaging import version
 import sys
 sys.exit(0 if version.parse('$1') >= version.parse('$2') else 1)
 " 2>/dev/null || python3 -c "
-# Fallback without packaging module
 v1 = '$1'.split('.')
 v2 = '$2'.split('.')
 for a, b in zip(v1, v2):
@@ -184,7 +194,7 @@ exit(0 if len(v1) >= len(v2) else 1)
 "
 }
 
-# ─── Check if binary exists and get version ──────────────────────────────────
+# ─── Check binary version ────────────────────────────────────────────────────
 check_binary_version() {
     local binary="$1"
     local version_flag="$2"
@@ -230,7 +240,7 @@ check_prerequisite() {
 
 # ─── Install system packages ─────────────────────────────────────────────────
 install_system_packages() {
-    local packages="$1"  # space-separated or JSON array
+    local packages="$1"
 
     # Handle JSON array input
     if [[ "$packages" == "["* ]]; then
@@ -243,34 +253,23 @@ install_system_packages() {
 
     log_step "Installing system packages: $packages"
 
+    if [[ "$CHECK_ONLY" == true ]]; then
+        log_warn "Would install: $packages"
+        return 0
+    fi
+
     case "$OS_ID" in
         ubuntu|debian)
-            if [[ "$CHECK_ONLY" == true ]]; then
-                log_warn "Would run: sudo apt install -y $packages"
-                return 0
-            fi
             sudo apt update -qq
             sudo apt install -y $packages
             ;;
         arch)
-            if [[ "$CHECK_ONLY" == true ]]; then
-                log_warn "Would run: sudo pacman -S --noconfirm $packages"
-                return 0
-            fi
             sudo pacman -S --noconfirm --needed $packages
             ;;
         fedora)
-            if [[ "$CHECK_ONLY" == true ]]; then
-                log_warn "Would run: sudo dnf install -y $packages"
-                return 0
-            fi
             sudo dnf install -y $packages
             ;;
         macos)
-            if [[ "$CHECK_ONLY" == true ]]; then
-                log_warn "Would run: brew install $packages"
-                return 0
-            fi
             if ! command -v brew &>/dev/null; then
                 log_error "Homebrew not found. Install it first: https://brew.sh"
                 return 1
@@ -286,7 +285,7 @@ install_system_packages() {
 
 # ─── Install Python packages ─────────────────────────────────────────────────
 install_python_packages() {
-    local packages="$1"  # space-separated
+    local packages="$1"
 
     if [[ -z "$packages" ]]; then
         return 0
@@ -295,242 +294,277 @@ install_python_packages() {
     log_step "Installing Python packages: $packages"
 
     if [[ "$CHECK_ONLY" == true ]]; then
-        log_warn "Would run: pip3 install $packages"
+        log_warn "Would run: pip3 install --break-system-packages $packages"
         return 0
     fi
 
-    pip3 install --user --quiet $packages
+    pip3 install --user --quiet --break-system-packages $packages 2>/dev/null || \
+    pip3 install --user --quiet $packages 2>/dev/null || \
+    log_warn "pip3 install failed — try: sudo apt install python3-yaml python3-jinja2"
 }
 
-# ─── Download and install toolchain from URL ─────────────────────────────────
-install_toolchain_from_url() {
+# ─── Clone git repository ────────────────────────────────────────────────────
+clone_git_repo() {
     local name="$1"
-    local install_dir="$2"
+    local url="$2"
+    local tag="$3"
+    local dest="$4"
+
+    if [[ -d "$dest/.git" ]]; then
+        log_info "$name already cloned at $dest, checking tag..."
+        local current_tag
+        current_tag=$(cd "$dest" && git describe --tags --abbrev=0 2>/dev/null) || true
+        if [[ "$current_tag" == "$tag" ]]; then
+            log_ok "$name already at $tag"
+            return 0
+        else
+            log_warn "$name at $current_tag, expected $tag — updating..."
+            if [[ "$CHECK_ONLY" == true ]]; then
+                log_warn "Would update $name to $tag"
+                return 0
+            fi
+            cd "$dest"
+            git fetch --tags origin "$tag"
+            git checkout "$tag"
+            cd - > /dev/null
+            return 0
+        fi
+    fi
+
+    log_step "Cloning $name ($tag)..."
+    if [[ "$CHECK_ONLY" == true ]]; then
+        log_warn "Would clone $url ($tag) to $dest"
+        return 0
+    fi
+
+    mkdir -p "$(dirname "$dest")"
+    git clone --branch "$tag" --depth 1 "$url" "$dest"
+    log_ok "$name cloned to $dest"
+}
+
+# ─── Install SDK from git (single or multi-repo) ─────────────────────────────
+install_sdk_from_git() {
+    local sdk_name="$1"
+    local install_dir
+    install_dir=$(yaml_get "$PREREQ_FILE" "sdks.${sdk_name}.install_dir" 2>/dev/null | tr -d '"' | sed "s|~|$HOME|g") || {
+        log_error "No install_dir for SDK: $sdk_name"
+        return 1
+    }
+
+    mkdir -p "$install_dir"
+
+    # Check if it's a list of git repos or a single one
+    local is_list
+    is_list=$(yaml_get_list "$PREREQ_FILE" "sdks.${sdk_name}.git" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+print('true' if isinstance(data, list) else 'false')
+" 2>/dev/null)
+
+    if [[ "$is_list" == "true" ]]; then
+        # Multi-repo SDK
+        local count
+        count=$(yaml_get_list "$PREREQ_FILE" "sdks.${sdk_name}.git" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
+
+        for ((i=0; i<count; i++)); do
+            local repo_url
+            repo_url=$(yaml_get_list "$PREREQ_FILE" "sdks.${sdk_name}.git" | python3 -c "import sys,json; print(json.load(sys.stdin)[$i]['url'])")
+            local repo_tag
+            repo_tag=$(yaml_get_list "$PREREQ_FILE" "sdks.${sdk_name}.git" | python3 -c "import sys,json; print(json.load(sys.stdin)[$i]['tag'])")
+            local repo_subdir
+            repo_subdir=$(yaml_get_list "$PREREQ_FILE" "sdks.${sdk_name}.git" | python3 -c "import sys,json; d=json.load(sys.stdin)[$i]; print(d.get('subdir',''))" 2>/dev/null) || true
+
+            local dest="$install_dir"
+            if [[ -n "$repo_subdir" ]]; then
+                dest="$install_dir/$repo_subdir"
+                mkdir -p "$dest"
+            fi
+
+            local repo_name
+            repo_name=$(basename "$repo_url" .git)
+
+            clone_git_repo "$repo_name" "$repo_url" "$repo_tag" "$dest"
+        done
+    else
+        # Single repo
+        local git_url
+        git_url=$(yaml_get "$PREREQ_FILE" "sdks.${sdk_name}.git.url" 2>/dev/null | tr -d '"') || {
+            log_error "No git URL for SDK: $sdk_name"
+            return 1
+        }
+        local git_tag
+        git_tag=$(yaml_get "$PREREQ_FILE" "sdks.${sdk_name}.git.tag" 2>/dev/null | tr -d '"') || {
+            log_error "No git tag for SDK: $sdk_name"
+            return 1
+        }
+
+        clone_git_repo "$sdk_name" "$git_url" "$git_tag" "$install_dir"
+    fi
+}
+
+# ─── Install SDK from archive ────────────────────────────────────────────────
+install_sdk_from_archive() {
+    local sdk_name="$1"
     local os_key="${OS_ID}_${ARCH}"
 
-    # Get download URL for this OS/arch
-    local download_info
-    download_info=$(yaml_get "$PREREQ_FILE" "platforms.${name}.0.download.${os_key}") || {
-        log_error "No download available for $os_key"
+    local archive_info
+    archive_info=$(yaml_get "$PREREQ_FILE" "sdks.${sdk_name}.download.${os_key}" 2>/dev/null) || {
+        log_error "No download available for $sdk_name on $os_key"
         return 1
     }
 
     local url
-    url=$(echo "$download_info" | python3 -c "import sys,json; print(json.load(sys.stdin)['url'])")
+    url=$(echo "$archive_info" | python3 -c "import sys,json; print(json.load(sys.stdin)['url'])")
     local archive_type
-    archive_type=$(echo "$download_info" | python3 -c "import sys,json; print(json.load(sys.stdin)['archive_type'])")
+    archive_type=$(echo "$archive_info" | python3 -c "import sys,json; print(json.load(sys.stdin)['archive_type'])")
 
-    local dest_dir
-    dest_dir=$(echo "$install_dir" | sed "s|~|$HOME|g")
+    local install_dir
+    install_dir=$(yaml_get "$PREREQ_FILE" "sdks.${sdk_name}.install_dir" | tr -d '"' | sed "s|~|$HOME|g")
 
-    log_step "Downloading $name for $os_key..."
+    log_step "Downloading $sdk_name..."
     log_info "URL: $url"
 
     if [[ "$CHECK_ONLY" == true ]]; then
-        log_warn "Would download and install to $dest_dir"
+        log_warn "Would download and install $sdk_name to $install_dir"
         return 0
     fi
 
-    # Create temp directory
     local tmp_dir
     tmp_dir=$(mktemp -d)
     trap "rm -rf $tmp_dir" RETURN
 
-    # Download
-    local archive_name
-    archive_name=$(basename "$url")
-    curl -L --progress-bar "$url" -o "$tmp_dir/$archive_name"
+    curl -L --progress-bar "$url" -o "$tmp_dir/archive"
 
-    # Extract
-    log_info "Extracting..."
-    mkdir -p "$dest_dir"
-
+    mkdir -p "$install_dir"
     case "$archive_type" in
-        tar.xz)
-            tar -xJf "$tmp_dir/$archive_name" -C "$dest_dir" --strip-components=1
-            ;;
-        tar.gz)
-            tar -xzf "$tmp_dir/$archive_name" -C "$dest_dir" --strip-components=1
-            ;;
-        zip)
-            unzip -q "$tmp_dir/$archive_name" -d "$dest_dir"
-            ;;
-        *)
-            log_error "Unsupported archive type: $archive_type"
-            return 1
-            ;;
+        tar.xz)  tar -xJf "$tmp_dir/archive" -C "$install_dir" --strip-components=1 ;;
+        tar.gz)  tar -xzf "$tmp_dir/archive" -C "$install_dir" --strip-components=1 ;;
+        zip)     unzip -q "$tmp_dir/archive" -d "$install_dir" ;;
+        *)       log_error "Unsupported archive type: $archive_type"; return 1 ;;
     esac
 
-    # Create symlink
-    local version_dir
-    version_dir=$(basename "$url" | grep -oP '[0-9]+\.[0-9]+[^/]*' | head -1)
-    if [[ -d "$dest_dir" ]]; then
-        ln -sf "$dest_dir" "$dest_dir/../current" 2>/dev/null || true
-        log_ok "Installed to $dest_dir"
-    fi
+    log_ok "$sdk_name installed to $install_dir"
 }
 
-# ─── Install ESP-IDF ─────────────────────────────────────────────────────────
-install_esp_idf() {
+# ─── Check if SDK is installed ───────────────────────────────────────────────
+check_sdk_installed() {
+    local sdk_name="$1"
+    local cmake_var
+    cmake_var=$(yaml_get "$PREREQ_FILE" "sdks.${sdk_name}.cmake_var" 2>/dev/null | tr -d '"') || true
+
+    # Check env-based cmake var
+    if [[ -n "$cmake_var" ]]; then
+        local env_val="${!cmake_var}"
+        if [[ -n "$env_val" && -d "$env_val" ]]; then
+            log_ok "$sdk_name found via $cmake_var=$env_val"
+            return 0
+        fi
+    fi
+
+    # Check standard paths
     local install_dir
-    install_dir=$(yaml_get "$PREREQ_FILE" "platforms.esp32.0.install_dir" | sed "s|~|$HOME|g")
-    local git_url
-    git_url=$(yaml_get "$PREREQ_FILE" "platforms.esp32.0.git.url" | tr -d '"')
-    local git_tag
-    git_tag=$(yaml_get "$PREREQ_FILE" "platforms.esp32.0.git.tag" | tr -d '"')
+    install_dir=$(yaml_get "$PREREQ_FILE" "sdks.${sdk_name}.install_dir" 2>/dev/null | tr -d '"' | sed "s|~|$HOME|g") || true
 
-    log_step "Setting up ESP-IDF..."
+    if [[ -n "$install_dir" && -d "$install_dir" ]]; then
+        # Check for marker files or include dirs
+        local include_dirs
+        include_dirs=$(yaml_get_list "$PREREQ_FILE" "sdks.${sdk_name}.include_dirs" 2>/dev/null) || true
+        if [[ -n "$include_dirs" && "$include_dirs" != "[]" ]]; then
+            local first_dir
+            first_dir=$(echo "$include_dirs" | python3 -c "import sys,json; print(json.load(sys.stdin)[0])")
+            if [[ -d "$install_dir/$first_dir" ]]; then
+                log_ok "$sdk_name found at $install_dir"
+                return 0
+            fi
+        else
+            # For multi-repo: check if at least one expected subdir exists
+            if [[ -d "$install_dir/Inc" || -d "$install_dir/CMSIS" || -d "$install_dir/Drivers" ]]; then
+                log_ok "$sdk_name found at $install_dir"
+                return 0
+            fi
+        fi
+    fi
 
-    if [[ "$CHECK_ONLY" == true ]]; then
-        log_warn "Would clone $git_url ($git_tag) to $install_dir"
+    # Check ABL_DEPS_PATH
+    if [[ -n "$ABL_DEPS_PATH" && -d "$ABL_DEPS_PATH/$sdk_name" ]]; then
+        log_ok "$sdk_name found at $ABL_DEPS_PATH/$sdk_name"
         return 0
     fi
 
-    mkdir -p "$install_dir"
-
-    if [[ ! -d "$install_dir/.git" ]]; then
-        log_info "Cloning ESP-IDF ($git_tag)..."
-        git clone --recursive --branch "$git_tag" --depth 1 "$git_url" "$install_dir"
-    else
-        log_info "ESP-IDF already cloned, updating..."
-        cd "$install_dir"
-        git fetch --depth 1 origin "$git_tag"
-        git checkout "$git_tag"
-        git submodule update --init --recursive
-        cd -
+    # Check project lib/
+    local lib_dir="$SCRIPT_DIR/lib/$sdk_name"
+    if [[ -d "$lib_dir" ]]; then
+        log_ok "$sdk_name found at $lib_dir"
+        return 0
     fi
 
-    # Run install script
-    log_info "Running ESP-IDF install.sh..."
-    cd "$install_dir"
-    ./install.sh
-    cd -
-
-    log_ok "ESP-IDF installed to $install_dir"
-    log_info "Run 'source $install_dir/export.sh' before building"
+    return 1
 }
 
-# ─── Setup a single platform ─────────────────────────────────────────────────
-setup_platform() {
-    local platform="$1"
-    log_step "═══════════════════════════════════════════════════"
-    log_step "Setting up platform: $platform"
-    log_step "═══════════════════════════════════════════════════"
+# ─── Resolve SDK install path ────────────────────────────────────────────────
+resolve_sdk_path() {
+    local sdk_name="$1"
 
-    # Get toolchain list for this platform
-    local toolchains_json
-    toolchains_json=$(yaml_get_list "$PREREQ_FILE" "platforms.${platform}") || {
-        log_error "No toolchain definition for platform: $platform"
-        return 1
-    }
+    # Priority 1: ABL_DEPS_PATH
+    if [[ -n "$ABL_DEPS_PATH" && -d "$ABL_DEPS_PATH/$sdk_name" ]]; then
+        echo "$ABL_DEPS_PATH/$sdk_name"
+        return 0
+    fi
 
-    # Process each toolchain entry
-    local count
-    count=$(echo "$toolchains_json" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
+    # Priority 2: project/lib/
+    local lib_dir="$SCRIPT_DIR/lib/$sdk_name"
+    if [[ -d "$lib_dir" ]]; then
+        echo "$lib_dir"
+        return 0
+    fi
 
-    for ((i=0; i<count; i++)); do
-        local tc_name
-        tc_name=$(echo "$toolchains_json" | python3 -c "import sys,json; d=json.load(sys.stdin)[$i]; print(d['name'])")
-        local tc_check_binary
-        tc_check_binary=$(echo "$toolchains_json" | python3 -c "import sys,json; d=json.load(sys.stdin)[$i]; print(d.get('check',{}).get('binary',''))" 2>/dev/null) || true
-        local tc_check_flag
-        tc_check_flag=$(echo "$toolchains_json" | python3 -c "import sys,json; d=json.load(sys.stdin)[$i]; print(d.get('check',{}).get('version_flag','--version'))" 2>/dev/null) || true
-        local tc_check_regex
-        tc_check_regex=$(echo "$toolchains_json" | python3 -c "import sys,json; d=json.load(sys.stdin)[$i]; print(d.get('check',{}).get('version_regex',''))" 2>/dev/null) || true
-        local tc_min_version
-        tc_min_version=$(echo "$toolchains_json" | python3 -c "import sys,json; d=json.load(sys.stdin)[$i]; print(d.get('check',{}).get('min_version',''))" 2>/dev/null) || true
-        local tc_install_dir
-        tc_install_dir=$(echo "$toolchains_json" | python3 -c "import sys,json; d=json.load(sys.stdin)[$i]; print(d.get('install_dir',''))" 2>/dev/null) || true
+    # Priority 3: ~/.local/share/abl-mcu-sdks/
+    local install_dir
+    install_dir=$(yaml_get "$PREREQ_FILE" "sdks.${sdk_name}.install_dir" 2>/dev/null | tr -d '"' | sed "s|~|$HOME|g") || true
+    if [[ -n "$install_dir" && -d "$install_dir" ]]; then
+        echo "$install_dir"
+        return 0
+    fi
 
-        log_info "Checking: $tc_name"
+    return 1
+}
 
-        # Step 1: Check system PATH
-        local found_in_path=false
-        if [[ -n "$tc_check_binary" ]]; then
-            local sys_version
-            sys_version=$(check_binary_version "$tc_check_binary" "$tc_check_flag" "$tc_check_regex") || true
-            if [[ -n "$sys_version" ]]; then
-                if [[ -n "$tc_min_version" ]] && version_gte "$sys_version" "$tc_min_version"; then
-                    log_ok "Found in PATH: $tc_name $sys_version"
-                    found_in_path=true
-                else
-                    log_warn "System version $sys_version < $tc_min_version"
-                fi
-            fi
-        fi
+# ─── Install SDK ─────────────────────────────────────────────────────────────
+install_sdk() {
+    local sdk_name="$1"
 
-        if [[ "$found_in_path" == true && "$FORCE" != true ]]; then
-            log_skip "Using system toolchain, skipping install"
-            continue
-        fi
+    log_info "Setting up SDK: $sdk_name"
 
-        # Step 2: Check managed toolchain (~/.local/share/...)
-        if [[ -n "$tc_install_dir" ]]; then
-            local managed_dir
-            managed_dir=$(echo "$tc_install_dir" | sed "s|~|$HOME|g")
-            local current_link="$managed_dir/current"
+    # Check if already installed
+    if [[ "$FORCE" != true ]] && check_sdk_installed "$sdk_name"; then
+        log_skip "SDK already installed"
+        return 0
+    fi
 
-            if [[ -L "$current_link" || -d "$current_link" ]]; then
-                local managed_version
-                managed_version=$(PATH="$managed_dir/current/bin:$PATH" check_binary_version "$tc_check_binary" "$tc_check_flag" "$tc_check_regex") || true
-                if [[ -n "$managed_version" ]]; then
-                    if [[ -n "$tc_min_version" ]] && version_gte "$managed_version" "$tc_min_version"; then
-                        log_ok "Found managed: $tc_name $managed_version at $managed_dir"
-                        if [[ "$FORCE" != true ]]; then
-                            log_skip "Using managed toolchain"
-                            continue
-                        fi
-                    fi
-                fi
-            fi
-        fi
+    # Check if git is a list (multi-repo) or scalar
+    local is_list
+    is_list=$(yaml_get_list "$PREREQ_FILE" "sdks.${sdk_name}.git" 2>/dev/null | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+print('true' if isinstance(data, list) else 'false')
+" 2>/dev/null) || true
 
-        # Step 3: Install
-        if [[ "$CHECK_ONLY" == true ]]; then
-            log_warn "$tc_name not found — would be installed"
-            continue
-        fi
+    if [[ "$is_list" == "true" ]]; then
+        install_sdk_from_git "$sdk_name"
+        return $?
+    fi
 
-        # ESP-IDF special case
-        if [[ "$tc_name" == "esp-idf" ]]; then
-            install_esp_idf
-            continue
-        fi
+    # Single git repo
+    local git_url
+    git_url=$(yaml_get "$PREREQ_FILE" "sdks.${sdk_name}.git.url" 2>/dev/null | tr -d '"') || true
+    if [[ -n "$git_url" && "$git_url" != "null" ]]; then
+        install_sdk_from_git "$sdk_name"
+        return $?
+    fi
 
-        # Try system packages first
-        local pkg_key="${platform}.${i}.packages.${OS_ID}"
-        local sys_packages
-        sys_packages=$(yaml_get "$PREREQ_FILE" "platforms.${pkg_key}" 2>/dev/null) || true
-        sys_packages=$(echo "$sys_packages" | tr -d '"')
-
-        if [[ -n "$sys_packages" && "$sys_packages" != "null" ]]; then
-            log_info "Trying system packages for $tc_name..."
-            if install_system_packages "$sys_packages"; then
-                # Verify installation
-                local new_version
-                new_version=$(check_binary_version "$tc_check_binary" "$tc_check_flag" "$tc_check_regex") || true
-                if [[ -n "$new_version" ]]; then
-                    if [[ -n "$tc_min_version" ]] && version_gte "$new_version" "$tc_min_version"; then
-                        log_ok "Installed via system package: $tc_name $new_version"
-                        continue
-                    fi
-                fi
-                log_warn "System package installed but version check failed"
-            fi
-        fi
-
-        # Fallback: download
-        if [[ -n "$tc_install_dir" ]]; then
-            log_info "Downloading $tc_name..."
-            if install_toolchain_from_url "$tc_name" "$tc_install_dir"; then
-                log_ok "Downloaded $tc_name"
-            else
-                log_error "Failed to install $tc_name"
-            fi
-        else
-            log_error "No installation method available for $tc_name on $OS_ID"
-        fi
-    done
+    # Try archive download
+    install_sdk_from_archive "$sdk_name"
+    return $?
 }
 
 # ─── Setup common dependencies ───────────────────────────────────────────────
@@ -541,8 +575,6 @@ setup_common() {
 
     local common_count
     common_count=$(yaml_get_list "$PREREQ_FILE" "common" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
-
-    local missing_packages=()
 
     for ((i=0; i<common_count; i++)); do
         local item
@@ -570,7 +602,6 @@ setup_common() {
         fi
 
         if ! check_prerequisite "$name" "$binary" "$flag" "$regex" "$min_ver"; then
-            # Try to install — get packages from the already-parsed item
             local pkg
             pkg=$(echo "$item" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('packages',{}).get('$OS_ID',''))" 2>/dev/null) || true
             pkg=$(echo "$pkg" | tr -d '"' | sed 's/^\[//;s/\]$//;s/,/ /g;s/  */ /g')
@@ -580,7 +611,6 @@ setup_common() {
                     log_warn "Would install: $pkg"
                 else
                     install_system_packages "$pkg"
-                    # Re-check
                     if ! check_prerequisite "$name" "$binary" "$flag" "$regex" "$min_ver"; then
                         log_error "Failed to install $name"
                     fi
@@ -609,6 +639,254 @@ for item in data:
     fi
 }
 
+# ─── Setup git dependencies ──────────────────────────────────────────────────
+setup_dependencies() {
+    log_step "═══════════════════════════════════════════════════"
+    log_step "Installing git dependencies"
+    log_step "═══════════════════════════════════════════════════"
+
+    # Get all dependency names
+    local dep_names
+    dep_names=$(yaml_get_list "$PREREQ_FILE" "dependencies" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for name in data.keys():
+    print(name)
+" 2>/dev/null) || true
+
+    for dep_name in $dep_names; do
+        local required
+        required=$(yaml_get "$PREREQ_FILE" "dependencies.${dep_name}.required" 2>/dev/null) || true
+
+        local git_url
+        git_url=$(yaml_get "$PREREQ_FILE" "dependencies.${dep_name}.git.url" 2>/dev/null | tr -d '"') || true
+        if [[ -z "$git_url" ]]; then
+            log_warn "$dep_name has no git URL, skipping"
+            continue
+        fi
+
+        local git_tag
+        git_tag=$(yaml_get "$PREREQ_FILE" "dependencies.${dep_name}.git.tag" 2>/dev/null | tr -d '"') || {
+            log_error "$dep_name has no git tag"
+            if [[ "$required" == "true" ]]; then
+                return 1
+            fi
+            continue
+        }
+
+        local dest
+        dest=$(yaml_get "$PREREQ_FILE" "dependencies.${dep_name}.dest" 2>/dev/null | tr -d '"') || {
+            log_error "$dep_name has no destination"
+            if [[ "$required" == "true" ]]; then
+                return 1
+            fi
+            continue
+        }
+
+        # Resolve full path
+        local full_dest
+        if [[ -n "$ABL_DEPS_PATH" ]]; then
+            full_dest="$ABL_DEPS_PATH/$dep_name"
+        else
+            full_dest="$SCRIPT_DIR/$dest"
+        fi
+
+        clone_git_repo "$dep_name" "$git_url" "$git_tag" "$full_dest"
+    done
+}
+
+# ─── Setup a single platform ─────────────────────────────────────────────────
+setup_platform() {
+    local platform="$1"
+    log_step "═══════════════════════════════════════════════════"
+    log_step "Setting up platform: $platform"
+    log_step "═══════════════════════════════════════════════════"
+
+    local toolchains_json
+    toolchains_json=$(yaml_get_list "$PREREQ_FILE" "platforms.${platform}") || {
+        log_error "No toolchain definition for platform: $platform"
+        return 1
+    }
+
+    local count
+    count=$(echo "$toolchains_json" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
+
+    for ((i=0; i<count; i++)); do
+        local tc_name
+        tc_name=$(echo "$toolchains_json" | python3 -c "import sys,json; d=json.load(sys.stdin)[$i]; print(d['name'])")
+
+        log_info "Checking: $tc_name"
+
+        local tc_check_binary
+        tc_check_binary=$(echo "$toolchains_json" | python3 -c "import sys,json; d=json.load(sys.stdin)[$i]; print(d.get('check',{}).get('binary',''))" 2>/dev/null) || true
+        local tc_check_flag
+        tc_check_flag=$(echo "$toolchains_json" | python3 -c "import sys,json; d=json.load(sys.stdin)[$i]; print(d.get('check',{}).get('version_flag','--version'))" 2>/dev/null) || true
+        local tc_check_regex
+        tc_check_regex=$(echo "$toolchains_json" | python3 -c "import sys,json; d=json.load(sys.stdin)[$i]; print(d.get('check',{}).get('version_regex',''))" 2>/dev/null) || true
+        local tc_min_version
+        tc_min_version=$(echo "$toolchains_json" | python3 -c "import sys,json; d=json.load(sys.stdin)[$i]; print(d.get('check',{}).get('min_version',''))" 2>/dev/null) || true
+        local tc_install_dir
+        tc_install_dir=$(echo "$toolchains_json" | python3 -c "import sys,json; d=json.load(sys.stdin)[$i]; print(d.get('install_dir',''))" 2>/dev/null) || true
+
+        # ESP-IDF special case
+        if [[ "$tc_name" == "esp-idf" ]]; then
+            local esp_install_dir
+            esp_install_dir=$(echo "$toolchains_json" | python3 -c "import sys,json; d=json.load(sys.stdin)[$i]; print(d.get('install_dir',''))" 2>/dev/null | tr -d '"' | sed "s|~|$HOME|g") || true
+            if [[ -n "$esp_install_dir" && -d "$esp_install_dir/.git" ]]; then
+                log_ok "ESP-IDF already cloned at $esp_install_dir"
+            else
+                local esp_git_url
+                esp_git_url=$(echo "$toolchains_json" | python3 -c "import sys,json; d=json.load(sys.stdin)[$i]; print(d.get('git',{}).get('url',''))" 2>/dev/null | tr -d '"') || true
+                local esp_git_tag
+                esp_git_tag=$(echo "$toolchains_json" | python3 -c "import sys,json; d=json.load(sys.stdin)[$i]; print(d.get('git',{}).get('tag',''))" 2>/dev/null | tr -d '"') || true
+                if [[ -n "$esp_git_url" && -n "$esp_git_tag" ]]; then
+                    clone_git_repo "ESP-IDF" "$esp_git_url" "$esp_git_tag" "$esp_install_dir"
+                fi
+            fi
+            continue
+        fi
+
+        # Check system PATH
+        local found_in_path=false
+        if [[ -n "$tc_check_binary" ]]; then
+            local sys_version
+            sys_version=$(check_binary_version "$tc_check_binary" "$tc_check_flag" "$tc_check_regex") || true
+            if [[ -n "$sys_version" ]]; then
+                if [[ -n "$tc_min_version" ]] && version_gte "$sys_version" "$tc_min_version"; then
+                    log_ok "Found in PATH: $tc_name $sys_version"
+                    found_in_path=true
+                else
+                    log_warn "System version $sys_version < $tc_min_version"
+                fi
+            fi
+        fi
+
+        if [[ "$found_in_path" == true && "$FORCE" != true ]]; then
+            log_skip "Using system toolchain, skipping install"
+            continue
+        fi
+
+        # Check managed toolchain
+        if [[ -n "$tc_install_dir" ]]; then
+            local managed_dir
+            managed_dir=$(echo "$tc_install_dir" | sed "s|~|$HOME|g")
+            local current_link="$managed_dir/current"
+
+            if [[ -L "$current_link" || -d "$current_link" ]]; then
+                local managed_version
+                managed_version=$(PATH="$managed_dir/current/bin:$PATH" check_binary_version "$tc_check_binary" "$tc_check_flag" "$tc_check_regex") || true
+                if [[ -n "$managed_version" ]]; then
+                    if [[ -n "$tc_min_version" ]] && version_gte "$managed_version" "$tc_min_version"; then
+                        log_ok "Found managed: $tc_name $managed_version at $managed_dir"
+                        if [[ "$FORCE" != true ]]; then
+                            log_skip "Using managed toolchain"
+                            continue
+                        fi
+                    fi
+                fi
+            fi
+        fi
+
+        # Install if needed
+        if [[ "$CHECK_ONLY" == true ]]; then
+            log_warn "$tc_name not found — would be installed"
+            continue
+        fi
+
+        # Try system packages first
+        local sys_packages
+        sys_packages=$(echo "$toolchains_json" | python3 -c "import sys,json; d=json.load(sys.stdin)[$i]; print(d.get('packages',{}).get('$OS_ID',''))" 2>/dev/null) || true
+        sys_packages=$(echo "$sys_packages" | tr -d '"')
+
+        if [[ -n "$sys_packages" && "$sys_packages" != "null" ]]; then
+            log_info "Trying system packages for $tc_name..."
+            if install_system_packages "$sys_packages"; then
+                local new_version
+                new_version=$(check_binary_version "$tc_check_binary" "$tc_check_flag" "$tc_check_regex") || true
+                if [[ -n "$new_version" ]]; then
+                    if [[ -n "$tc_min_version" ]] && version_gte "$new_version" "$tc_min_version"; then
+                        log_ok "Installed via system package: $tc_name $new_version"
+                        continue
+                    fi
+                fi
+                log_warn "System package installed but version check failed"
+            fi
+        fi
+
+        # Fallback: download
+        if [[ -n "$tc_install_dir" ]]; then
+            log_info "Downloading $tc_name..."
+            local os_key="${OS_ID}_${ARCH}"
+            local download_info
+            download_info=$(echo "$toolchains_json" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)[$i].get('download', {})
+for k, v in d.items():
+    if k == '$os_key':
+        print(json.dumps(v))
+        break
+" 2>/dev/null) || true
+
+            if [[ -n "$download_info" && "$download_info" != "null" ]]; then
+                local url
+                url=$(echo "$download_info" | python3 -c "import sys,json; print(json.load(sys.stdin)['url'])")
+                local archive_type
+                archive_type=$(echo "$download_info" | python3 -c "import sys,json; print(json.load(sys.stdin)['archive_type'])")
+
+                local dest_dir
+                dest_dir=$(echo "$tc_install_dir" | sed "s|~|$HOME|g")
+
+                local tmp_dir
+                tmp_dir=$(mktemp -d)
+                curl -L --progress-bar "$url" -o "$tmp_dir/archive"
+                mkdir -p "$dest_dir"
+                case "$archive_type" in
+                    tar.xz)  tar -xJf "$tmp_dir/archive" -C "$dest_dir" --strip-components=1 ;;
+                    tar.gz)  tar -xzf "$tmp_dir/archive" -C "$dest_dir" --strip-components=1 ;;
+                    zip)     unzip -q "$tmp_dir/archive" -d "$dest_dir" ;;
+                esac
+                rm -rf "$tmp_dir"
+                log_ok "Installed $tc_name to $dest_dir"
+            else
+                log_error "No download available for $tc_name on $os_key"
+            fi
+        else
+            log_error "No installation method available for $tc_name on $OS_ID"
+        fi
+    done
+}
+
+# ─── Setup SDK for platform ──────────────────────────────────────────────────
+setup_platform_sdk() {
+    local platform="$1"
+    local sub_platform="$2"
+
+    log_info "Checking SDK for platform: $sub_platform"
+
+    # Get SDK name from sdk_map
+    local sdk_name=""
+
+    # Try platform-specific map first (e.g. stm32_sdk_map for stm32)
+    if [[ "$base_platform" == "stm32" ]]; then
+        sdk_name=$(yaml_get "$PREREQ_FILE" "platforms.stm32_sdk_map.${sub_platform}" 2>/dev/null | tr -d '"') || true
+    fi
+
+    if [[ -z "$sdk_name" || "$sdk_name" == "null" ]]; then
+        log_warn "No SDK mapping for $sub_platform"
+        return 0
+    fi
+
+    log_info "Required SDK: $sdk_name"
+
+    # Check if installed
+    if [[ "$FORCE" != true ]] && check_sdk_installed "$sdk_name"; then
+        log_skip "SDK already installed"
+        return 0
+    fi
+
+    install_sdk "$sdk_name"
+}
+
 # ─── Main ────────────────────────────────────────────────────────────────────
 main() {
     if [[ ! -f "$PREREQ_FILE" ]]; then
@@ -616,7 +894,7 @@ main() {
         exit 1
     fi
 
-    # Check python3 and PyYAML availability (needed for YAML parsing)
+    # Check python3 and PyYAML
     if ! command -v python3 &>/dev/null; then
         log_error "Python3 is required but not installed"
         log_info "Install it first: sudo apt install python3 (Ubuntu/Debian)"
@@ -631,21 +909,51 @@ main() {
     # Setup common dependencies
     setup_common
 
+    # Setup git dependencies if requested
+    if [[ "$INSTALL_DEPS" == true ]]; then
+        setup_dependencies
+    fi
+
+    # Setup specific SDK if requested
+    if [[ -n "$SPECIFIC_SDK" ]]; then
+        install_sdk "$SPECIFIC_SDK"
+    fi
+
     # Determine platforms to setup
     if [[ "$ALL_PLATFORMS" == true ]]; then
         PLATFORMS=($(yaml_get_list "$PREREQ_FILE" "platforms" | python3 -c "import sys,json; print(' '.join(json.load(sys.stdin).keys()))"))
         log_info "Setting up all platforms: ${PLATFORMS[*]}"
     fi
 
-    if [[ ${#PLATFORMS[@]} -eq 0 ]]; then
-        log_warn "No platform specified. Use -p PLATFORM or -a for all."
+    if [[ ${#PLATFORMS[@]} -eq 0 && -z "$SPECIFIC_SDK" && "$INSTALL_DEPS" != true ]]; then
+        log_warn "No platform specified. Use -p PLATFORM, -d for dependencies, or -a for all."
         show_help
         exit 0
     fi
 
     # Setup each platform
     for platform in "${PLATFORMS[@]}"; do
-        setup_platform "$platform"
+        # Determine sub-platform for SDK mapping
+        # For stm32f4 → platform=stm32, sub_platform=stm32f4
+        local base_platform=""
+        local sub_platform=""
+
+        if [[ "$platform" == stm32* ]]; then
+            base_platform="stm32"
+            sub_platform="$platform"
+        elif [[ "$platform" == "esp32" ]]; then
+            base_platform="esp32"
+            sub_platform="esp32"
+        elif [[ "$platform" == "avr" ]]; then
+            base_platform="avr"
+            sub_platform="avr"
+        else
+            base_platform="$platform"
+            sub_platform="$platform"
+        fi
+
+        setup_platform "$base_platform"
+        setup_platform_sdk "$base_platform" "$sub_platform"
     done
 
     log_step ""
@@ -653,6 +961,17 @@ main() {
 
     if [[ "$CHECK_ONLY" == true ]]; then
         log_info "This was a dry-run. Remove --check-only to actually install."
+    fi
+
+    # Print summary
+    if [[ "$INSTALL_DEPS" == true ]]; then
+        log_info ""
+        log_info "Dependencies installed to:"
+        if [[ -n "$ABL_DEPS_PATH" ]]; then
+            log_info "  $ABL_DEPS_PATH/"
+        else
+            log_info "  $SCRIPT_DIR/lib/"
+        fi
     fi
 }
 
