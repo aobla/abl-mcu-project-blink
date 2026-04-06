@@ -1,0 +1,13 @@
+platform: stm32f103
+cpu: cortex-m3
+frequencies:
+  hclk: 72000000
+  pclk1: 36000000
+  pclk2: 72000000
+memory:
+  flash: 131072     # 128KB
+  ram: 20480        # 20KB
+features:
+  enable_log: true
+  enable_cli: false
+  enable_ota: false

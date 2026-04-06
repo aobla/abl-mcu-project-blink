@@ -1,0 +1,13 @@
+platform: stm32f4
+cpu: cortex-m4
+frequencies:
+  hclk: 168000000
+  pclk1: 42000000
+  pclk2: 84000000
+memory:
+  flash: 1048576    # 1MB
+  ram: 131072       # 128KB
+features:
+  enable_log: true
+  enable_cli: false
+  enable_ota: false

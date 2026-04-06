@@ -1,0 +1,112 @@
+# Prerequisites for ABL MCU Project Blink
+# Used by setup.sh to check and install dependencies
+
+common:
+  - name: cmake
+    check:
+      binary: cmake
+      version_flag: "--version"
+      version_regex: "cmake version ([0-9]+\\.[0-9]+)"
+      min_version: "3.20"
+    packages:
+      debian: cmake
+      ubuntu: cmake
+      arch: cmake
+      fedora: cmake
+      macos: cmake
+
+  - name: ninja
+    check:
+      binary: ninja
+      version_flag: "--version"
+      version_regex: "([0-9]+\\.[0-9]+\\.[0-9]+)"
+      min_version: "1.10"
+    packages:
+      debian: ninja-build
+      ubuntu: ninja-build
+      arch: ninja
+      fedora: ninja-build
+      macos: ninja
+
+  - name: python3
+    check:
+      binary: python3
+      version_flag: "--version"
+      version_regex: "Python ([0-9]+\\.[0-9]+)"
+      min_version: "3.8"
+    packages:
+      debian: python3 python3-pip
+      ubuntu: python3 python3-pip
+      arch: python python-pip
+      fedora: python3 python3-pip
+      macos: python
+
+  - name: pip_packages
+    python:
+      - pyyaml>=5.4.0
+      - jinja2>=3.0.0
+
+platforms:
+  stm32:
+    - name: arm-none-eabi-gcc
+      check:
+        binary: arm-none-eabi-gcc
+        version_flag: "--version"
+        version_regex: "arm-none-eabi-gcc.*?\\)\\s+([0-9]+\\.[0-9]+\\.[0-9]+)"
+        min_version: "12.0"
+      packages:
+        debian: gcc-arm-none-eabi
+        ubuntu: gcc-arm-none-eabi
+        arch: arm-none-eabi-gcc
+        fedora: arm-none-eabi-gcc-cs
+        macos: null
+      download:
+        linux_x86_64:
+          url: "https://developer.arm.com/-/media/Files/downloads/gnu/13.2.rel1/binrel/arm-gnu-toolchain-13.2.rel1-x86_64-arm-none-eabi.tar.xz"
+          archive_type: "tar.xz"
+        linux_aarch64:
+          url: "https://developer.arm.com/-/media/Files/downloads/gnu/13.2.rel1/binrel/arm-gnu-toolchain-13.2.rel1-aarch64-arm-none-eabi.tar.xz"
+          archive_type: "tar.xz"
+        macos_arm64:
+          url: "https://developer.arm.com/-/media/Files/downloads/gnu/13.2.rel1/binrel/arm-gnu-toolchain-13.2.rel1-darwin-arm64-arm-none-eabi.tar.xz"
+          archive_type: "tar.xz"
+        macos_x86_64:
+          url: "https://developer.arm.com/-/media/Files/downloads/gnu/13.2.rel1/binrel/arm-gnu-toolchain-13.2.rel1-darwin-x86_64-arm-none-eabi.tar.xz"
+          archive_type: "tar.xz"
+      install_dir: "~/.local/share/abl-mcu-toolchains/arm-none-eabi"
+
+  avr:
+    - name: avr-gcc
+      check:
+        binary: avr-gcc
+        version_flag: "--version"
+        version_regex: "avr-gcc.*?\\)\\s+([0-9]+\\.[0-9]+\\.[0-9]+)"
+        min_version: "5.0"
+      packages:
+        debian: gcc-avr avr-libc
+        ubuntu: gcc-avr avr-libc
+        arch: avr-gcc avr-libc
+        fedora: avr-gcc avr-libc
+        macos: avr-gcc
+      install_dir: "~/.local/share/abl-mcu-toolchains/avr"
+
+  esp32:
+    - name: esp-idf
+      check:
+        binary: idf.py
+        version_flag: "--version"
+        version_regex: "v([0-9]+\\.[0-9]+)"
+        min_version: "5.0"
+        env_setup: "source {idf_path}/export.sh"
+      packages:
+        debian: git wget python3 python3-pip
+        ubuntu: git wget python3 python3-pip
+        arch: git wget python python-pip
+        fedora: git wget python3 python3-pip
+        macos: git wget python3
+      git:
+        url: "https://github.com/espressif/esp-idf.git"
+        tag: "v5.2.2"
+      install_dir: "~/.local/share/abl-mcu-toolchains/esp-idf"
+      install_script: "install.sh"
+      export_script: "export.sh"

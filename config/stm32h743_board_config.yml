@@ -1,0 +1,13 @@
+platform: stm32h743
+cpu: cortex-m7
+frequencies:
+  hclk: 400000000
+  pclk1: 200000000
+  pclk2: 200000000
+memory:
+  flash: 2097152    # 2MB
+  ram: 1048576      # 1MB
+features:
+  enable_log: true
+  enable_cli: false
+  enable_ota: false

@@ -1,0 +1,16 @@
+# AVR pin configuration
+# port: numeric index (0=PORTB, 1=PORTC, 2=PORTD, 3=PORTE, 4=PORTF)
+# Used by hal_gpio_pin_t::port as (void*)(uintptr_t)index
+pins:
+  led:
+    port: 0       # PORTB
+    pin: 5
+    mode: output  # PB5 — пин 13 на Arduino Uno (встроенный светодиод)
+  uart_tx:
+    port: 2       # PORTD
+    pin: 1
+    mode: alt_function  # PD1 — TX
+  uart_rx:
+    port: 2       # PORTD
+    pin: 0
+    mode: alt_function  # PD0 — RX

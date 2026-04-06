@@ -1,0 +1,11 @@
+platform: avr
+cpu: atmega328p
+frequencies:
+  cpu_freq: 16000000
+memory:
+  flash: 32768      # 32KB
+  ram: 2048         # 2KB
+features:
+  enable_log: true
+  enable_cli: false
+  enable_ota: false

@@ -1,0 +1,147 @@
+{
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "stm32f4-debug",
+            "displayName": "STM32F4 Debug",
+            "description": "Build for STM32F4 with debug configuration",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "PLATFORM": "stm32f4",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "stm32f4-release",
+            "displayName": "STM32F4 Release",
+            "description": "Build for STM32F4 with release configuration",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "PLATFORM": "stm32f4",
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "stm32f103-debug",
+            "displayName": "STM32F103 Debug",
+            "description": "Build for STM32F103 with debug configuration",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "PLATFORM": "stm32f103",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "stm32f103-release",
+            "displayName": "STM32F103 Release",
+            "description": "Build for STM32F103 with release configuration",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "PLATFORM": "stm32f103",
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "stm32h743-debug",
+            "displayName": "STM32H743 Debug",
+            "description": "Build for STM32H743 with debug configuration",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "PLATFORM": "stm32h743",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "stm32h743-release",
+            "displayName": "STM32H743 Release",
+            "description": "Build for STM32H743 with release configuration",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "PLATFORM": "stm32h743",
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "esp32-debug",
+            "displayName": "ESP32 Debug",
+            "description": "Build for ESP32 with debug configuration",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "PLATFORM": "esp32",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "esp32-release",
+            "displayName": "ESP32 Release",
+            "description": "Build for ESP32 with release configuration",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "PLATFORM": "esp32",
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "avr-debug",
+            "displayName": "AVR Debug",
+            "description": "Build for AVR with debug configuration",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "PLATFORM": "avr",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "avr-release",
+            "displayName": "AVR Release",
+            "description": "Build for AVR with release configuration",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "PLATFORM": "avr",
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "stm32f4-debug-build",
+            "configurePreset": "stm32f4-debug"
+        },
+        {
+            "name": "stm32f4-release-build",
+            "configurePreset": "stm32f4-release"
+        },
+        {
+            "name": "stm32f103-debug-build",
+            "configurePreset": "stm32f103-debug"
+        },
+        {
+            "name": "stm32f103-release-build",
+            "configurePreset": "stm32f103-release"
+        },
+        {
+            "name": "stm32h743-debug-build",
+            "configurePreset": "stm32h743-debug"
+        },
+        {
+            "name": "stm32h743-release-build",
+            "configurePreset": "stm32h743-release"
+        },
+        {
+            "name": "esp32-debug-build",
+            "configurePreset": "esp32-debug"
+        },
+        {
+            "name": "esp32-release-build",
+            "configurePreset": "esp32-release"
+        },
+        {
+            "name": "avr-debug-build",
+            "configurePreset": "avr-debug"
+        },
+        {
+            "name": "avr-release-build",
+            "configurePreset": "avr-release"
+        }
+    ]
+}
