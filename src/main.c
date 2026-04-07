@@ -14,9 +14,6 @@ int main(void) {
 
     hal_gpio_pin_t led_pin = { LED_PORT, LED_PIN };
 
-    // Инициализируем светодиод
-    hal_gpio_init(&led_pin, HAL_GPIO_MODE_OUTPUT, HAL_GPIO_PULL_NONE);
-
     // Основной цикл мигания светодиодом
     while (1) {
         hal_gpio_toggle(&led_pin);

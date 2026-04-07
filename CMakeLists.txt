@@ -40,7 +40,7 @@ if(DEFINED PLATFORM)
     endif()
 endif()
 
-project(abl-mcu-project-blink)
+project(abl-mcu-project-blink C CXX ASM)
 
 # ─── Platform define — MUST be before add_subdirectory(platformcore) ──────────
 string(TOUPPER "${PLATFORM}" PLATFORM_UPPER)
@@ -153,16 +153,31 @@ add_custom_command(
     COMMENT "Generating pinmux"
 )
 
-# Generate linker script
-if(EXISTS ${platformcore_SOURCE_DIR}/templates/linker_script.ld.jinja)
-    add_custom_command(
-        OUTPUT ${GEN_DIR}/linker_script.ld
-        COMMAND python3 ${platformcore_SOURCE_DIR}/scripts/gen_linker_v1.0.py ${CONFIG_FILE}
-        DEPENDS ${CONFIG_FILE}
-                ${platformcore_SOURCE_DIR}/scripts/gen_linker_v1.0.py
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-        COMMENT "Generating linker script"
-    )
+# ─── Platform-specific startup + linker script ───────────────────────────────
+# Explicit mapping: PLATFORM → startup.s + linker.ld + system.c
+if(PLATFORM STREQUAL "stm32f103")
+    set(STARTUP_FILE ${CMAKE_CURRENT_SOURCE_DIR}/target/stm32/startup_stm32f103x6.s)
+    set(LINKER_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/target/stm32/STM32F103X6_FLASH.ld)
+    set(SYSTEM_FILE ${CMAKE_CURRENT_SOURCE_DIR}/target/stm32/system_stm32f1xx.c)
+elseif(PLATFORM STREQUAL "stm32f4")
+    set(STARTUP_FILE ${CMAKE_CURRENT_SOURCE_DIR}/target/stm32/startup_stm32f407xx.s)
+    set(LINKER_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/target/stm32/STM32F407XG_FLASH.ld)
+    set(SYSTEM_FILE ${CMAKE_CURRENT_SOURCE_DIR}/target/stm32/system_stm32f4xx.c)
+elseif(PLATFORM STREQUAL "stm32h743")
+    set(STARTUP_FILE ${CMAKE_CURRENT_SOURCE_DIR}/target/stm32/startup_stm32h743xx.s)
+    set(LINKER_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/target/stm32/STM32H743XIGHX_FLASH.ld)
+    set(SYSTEM_FILE ${CMAKE_CURRENT_SOURCE_DIR}/target/stm32/system_stm32h7xx.c)
+elseif(PLATFORM STREQUAL "esp32")
+    set(STARTUP_FILE "")
+    set(LINKER_SCRIPT "")
+    set(SYSTEM_FILE "")
+elseif(PLATFORM STREQUAL "avr")
+    set(STARTUP_FILE "")
+    set(LINKER_SCRIPT "")
+    set(SYSTEM_FILE "")
+else()
+    message(FATAL_ERROR "No startup/linker mapping for platform: ${PLATFORM}. "
+                        "Add an entry in CMakeLists.txt")
 endif()
 
 # Custom target to trigger generation
@@ -170,7 +185,6 @@ add_custom_target(generated_files DEPENDS
     ${GEN_DIR}/hardware_config.h
     ${GEN_DIR}/hardware_pins.h
     ${GEN_DIR}/generated_gpio_init.c
-    ${GEN_DIR}/linker_script.ld
 )
 
 # 2. Target init — реализация проекта (тактирование, GPIO, периферия)
@@ -184,4 +198,7 @@ add_firmware_target(
     CONFIG ${CONFIG_FILE}
     PINMUX ${PINMUX_FILE}
     SOURCES src/main.c
+    STARTUP_FILE ${STARTUP_FILE}
+    LINKER_SCRIPT ${LINKER_SCRIPT}
+    SYSTEM_FILE ${SYSTEM_FILE}
 )

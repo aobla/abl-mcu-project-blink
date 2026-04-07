@@ -33,3 +33,4 @@ compile_commands.json
 # Dependencies
 _FetchContent*
 platformcore-src/
+lib/

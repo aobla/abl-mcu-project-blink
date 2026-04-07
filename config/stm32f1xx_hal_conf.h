@@ -28,7 +28,10 @@
 /* ─── Module headers (only what we use) ───────────────────────────────────── */
 #include "stm32f1xx_hal_gpio.h"
 #include "stm32f1xx_hal_rcc.h"
+#include "stm32f1xx_hal_rcc_ex.h"
 #include "stm32f1xx_hal_cortex.h"
+#include "stm32f1xx_hal_flash.h"
+#include "stm32f1xx_hal_flash_ex.h"
 
 /* ─── Modules ─────────────────────────────────────────────────────────────── */
 #define HAL_MODULE_ENABLED
@@ -52,6 +55,10 @@
 #if !defined  (LSI_VALUE)
   #define LSI_VALUE    40000U
 #endif
+
+/* ─── Startup timeouts ────────────────────────────────────────────────────── */
+#define HSE_STARTUP_TIMEOUT    ((uint32_t)0x0500)
+#define LSE_STARTUP_TIMEOUT    ((uint32_t)0x5000)
 
 /* ─── Tick ────────────────────────────────────────────────────────────────── */
 #define  TICK_INT_PRIORITY            0x0FU
