@@ -93,8 +93,11 @@ endif()
 if(DEFINED HAL_CONFIG_DIR AND TARGET hal_stm32)
     target_include_directories(hal_stm32 PUBLIC ${HAL_CONFIG_DIR})
 endif()
-if(DEFINED HAL_CONFIG_DIR AND TARGET hal_avr)
-    target_include_directories(hal_avr PUBLIC ${HAL_CONFIG_DIR})
+if(DEFINED HAL_CONFIG_DIR AND TARGET target_init)
+    target_include_directories(target_init PUBLIC ${HAL_CONFIG_DIR})
+endif()
+if(DEFINED HAL_CONFIG_DIR AND TARGET blink_led)
+    target_include_directories(blink_led PUBLIC ${HAL_CONFIG_DIR})
 endif()
 
 # Проверка версии platform-core

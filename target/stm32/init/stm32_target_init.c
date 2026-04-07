@@ -2,7 +2,7 @@
 #include "hal/gpio.h"
 #include "hal/delay.h"
 #include "hardware_config.h"
-#include "generated/hardware_pins.h"
+#include "hardware_pins.h"
 
 /* Собираем для любой STM32 платформы */
 #if defined(PLATFORM_STM32F4) || defined(PLATFORM_STM32F103) || defined(PLATFORM_STM32H743) || defined(PLATFORM_STM32)
@@ -112,7 +112,7 @@ static void SystemClock_Config(void)
     RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
     RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK) {
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_ACR_LATENCY_2) != HAL_OK) {
         while (1);
     }
 #else

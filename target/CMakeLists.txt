@@ -38,6 +38,16 @@ target_include_directories(target_init PUBLIC
     ${CMAKE_BINARY_DIR}/generated
 )
 
+# SDK include paths (from toolchain)
+if(DEFINED STM32_INCLUDE_DIRS)
+    target_include_directories(target_init PUBLIC ${STM32_INCLUDE_DIRS})
+endif()
+
+# Project HAL config (stm32f1xx_hal_conf.h, etc.)
+if(DEFINED HAL_CONFIG_DIR)
+    target_include_directories(target_init PUBLIC ${HAL_CONFIG_DIR})
+endif()
+
 # Platform define
 target_compile_definitions(target_init PRIVATE
     PLATFORM_${PLATFORM}
