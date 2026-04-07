@@ -36,6 +36,7 @@ target_include_directories(target_init PUBLIC
     ${platformcore_SOURCE_DIR}/target/common
     ${platformcore_SOURCE_DIR}/hal/include
     ${CMAKE_BINARY_DIR}/generated
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../include
 )
 
 # SDK include paths (from toolchain)

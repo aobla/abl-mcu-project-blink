@@ -1,8 +1,4 @@
-#include "target_init.h"
-#include "hal/gpio.h"
-#include "hal/delay.h"
-#include "hardware_config.h"
-#include "hardware_pins.h"
+#include "app.h"
 
 /* Собираем для любой STM32 платформы */
 #if defined(PLATFORM_STM32F4) || defined(PLATFORM_STM32F103) || defined(PLATFORM_STM32H743) || defined(PLATFORM_STM32)
@@ -17,19 +13,12 @@
 #include <stm32f4xx_hal.h>
 #endif
 
-/* Сгенерированная функция инициализации GPIO */
-extern void generated_gpio_init(void);
-
 /**
  * @brief Инициализация тактирования STM32
- *
- * Каждый проект настраивает тактирование под свои нужды.
- * Здесь приведён базовый вариант для отладочной платы.
  */
 static void SystemClock_Config(void)
 {
 #if defined(PLATFORM_STM32F4)
-    /* STM32F4: HSE → PLL → 168 MHz SYSCLK */
     RCC_OscInitTypeDef RCC_OscInitStruct = {0};
     RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
@@ -58,7 +47,6 @@ static void SystemClock_Config(void)
     }
 
 #elif defined(PLATFORM_STM32H743)
-    /* STM32H7: HSE → PLL → 400 MHz (упрощённо) */
     RCC_OscInitTypeDef RCC_OscInitStruct = {0};
     RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
@@ -91,7 +79,6 @@ static void SystemClock_Config(void)
     }
 
 #elif defined(PLATFORM_STM32F103)
-    /* STM32F103: HSE → PLL → 72 MHz SYSCLK */
     RCC_OscInitTypeDef RCC_OscInitStruct = {0};
     RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
@@ -99,7 +86,7 @@ static void SystemClock_Config(void)
     RCC_OscInitStruct.HSEState = RCC_HSE_ON;
     RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
     RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-    RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;  /* 8 MHz * 9 = 72 MHz */
+    RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
 
     if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
         while (1);
@@ -116,7 +103,7 @@ static void SystemClock_Config(void)
         while (1);
     }
 #else
-    /* Fallback: используем HSI по умолчанию */
+    /* Fallback: HSI по умолчанию */
 #endif
 }
 

@@ -47,17 +47,9 @@ string(TOUPPER "${PLATFORM}" PLATFORM_UPPER)
 add_compile_definitions(PLATFORM_${PLATFORM_UPPER})
 
 # ─── HAL config headers (project-specific) ───────────────────────────────────
-# These live in project's config/ and must be available to HAL sources
-if(PLATFORM MATCHES "^stm32f1")
-    add_compile_definitions(USE_HAL_DRIVER)
-    set(HAL_CONFIG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/config)
-elseif(PLATFORM MATCHES "^stm32f4")
-    add_compile_definitions(USE_HAL_DRIVER)
-    set(HAL_CONFIG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/config)
-elseif(PLATFORM MATCHES "^stm32h7")
-    add_compile_definitions(USE_HAL_DRIVER)
-    set(HAL_CONFIG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/config)
-endif()
+# These live in project's include/ and must be available to HAL sources
+set(HAL_CONFIG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+add_compile_definitions(USE_HAL_DRIVER)
 
 # ─── Resolve platform-core ───────────────────────────────────────────────────
 # Priority 1: ABL_DEPS_PATH
@@ -89,7 +81,7 @@ else()
     FetchContent_MakeAvailable(platformcore)
 endif()
 
-# Add project HAL config directory to HAL library includes
+# Add project include directory to all targets
 if(DEFINED HAL_CONFIG_DIR AND TARGET hal_stm32)
     target_include_directories(hal_stm32 PUBLIC ${HAL_CONFIG_DIR})
 endif()
