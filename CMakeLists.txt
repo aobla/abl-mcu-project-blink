@@ -105,24 +105,19 @@ endif()
 set(GEN_DIR ${CMAKE_BINARY_DIR}/generated)
 file(MAKE_DIRECTORY ${GEN_DIR})
 
-# Determine config files
+# Determine config file (single YAML with platform + pins)
 if(PLATFORM MATCHES "^stm32.*")
     if(PLATFORM STREQUAL "stm32")
         set(CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/config/stm32f4_board_config.yml)
-        set(PINMUX_FILE ${CMAKE_CURRENT_SOURCE_DIR}/config/stm32f4_board_pinmux.yml)
     else()
         set(CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/config/${PLATFORM}_board_config.yml)
-        set(PINMUX_FILE ${CMAKE_CURRENT_SOURCE_DIR}/config/${PLATFORM}_board_pinmux.yml)
     endif()
 elseif(PLATFORM STREQUAL "esp32")
     set(CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/config/esp32_board_config.yml)
-    set(PINMUX_FILE ${CMAKE_CURRENT_SOURCE_DIR}/config/esp32_board_pinmux.yml)
 elseif(PLATFORM STREQUAL "avr")
     set(CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/config/avr_board_config.yml)
-    set(PINMUX_FILE ${CMAKE_CURRENT_SOURCE_DIR}/config/avr_board_pinmux.yml)
 else()
     set(CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/config/stm32f4_board_config.yml)
-    set(PINMUX_FILE ${CMAKE_CURRENT_SOURCE_DIR}/config/stm32f4_board_pinmux.yml)
 endif()
 
 # Generate hardware_config.h
@@ -138,8 +133,8 @@ add_custom_command(
 # Generate pinmux (hardware_pins.h + generated_gpio_init.c)
 add_custom_command(
     OUTPUT ${GEN_DIR}/hardware_pins.h ${GEN_DIR}/generated_gpio_init.c
-    COMMAND python3 ${platformcore_SOURCE_DIR}/scripts/gen_pinmux_v1.0.py ${PINMUX_FILE}
-    DEPENDS ${PINMUX_FILE}
+    COMMAND python3 ${platformcore_SOURCE_DIR}/scripts/gen_pinmux_v1.0.py ${CONFIG_FILE}
+    DEPENDS ${CONFIG_FILE}
             ${platformcore_SOURCE_DIR}/scripts/gen_pinmux_v1.0.py
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Generating pinmux"
@@ -188,7 +183,6 @@ add_firmware_target(
     NAME blink_led
     PLATFORM ${PLATFORM}
     CONFIG ${CONFIG_FILE}
-    PINMUX ${PINMUX_FILE}
     SOURCES src/main.c
     STARTUP_FILE ${STARTUP_FILE}
     LINKER_SCRIPT ${LINKER_SCRIPT}

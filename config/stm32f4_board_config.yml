@@ -11,3 +11,16 @@ features:
   enable_log: true
   enable_cli: false
   enable_ota: false
+pins:
+  led:
+    port: GPIOA
+    pin: 5
+    mode: output
+  uart_tx:
+    port: GPIOA
+    pin: 9
+    mode: alt_function
+  uart_rx:
+    port: GPIOA
+    pin: 10
+    mode: alt_function
