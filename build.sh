@@ -5,7 +5,7 @@
 set -e  # Выход при ошибке
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BUILD_DIR="${SCRIPT_DIR}/build"
+BUILD_BASE_DIR="${SCRIPT_DIR}/build"
 TOOLCHAIN_BASE_DIR="$HOME/.local/share/abl-mcu-toolchains"
 
 # Цвета для вывода
@@ -214,6 +214,9 @@ fi
 log_info "Building project for platform: $PLATFORM"
 log_info "Build type: $BUILD_TYPE"
 
+# Platform-specific build directory
+BUILD_DIR="${BUILD_BASE_DIR}/${PLATFORM}"
+
 # Проверка git-зависимостей (core, drivers, etc.)
 if ! check_git_deps; then
     log_warn "Git dependencies not found in lib/"
@@ -236,8 +239,10 @@ log_info "Toolchain check passed"
 # Создание директории сборки
 if [[ $CLEAN == true ]]; then
     if [[ -d "$BUILD_DIR" ]]; then
-        log_info "Cleaning build directory..."
+        log_info "Cleaning build directory for platform: $PLATFORM..."
         rm -rf "$BUILD_DIR"
+    else
+        log_info "Build directory for $PLATFORM does not exist, skipping clean."
     fi
 fi
 
@@ -246,9 +251,9 @@ mkdir -p "$BUILD_DIR"
 # Переход в директорию сборки
 cd "$BUILD_DIR"
 
-# Запуск cmake с preset'ом
+# Запуск cmake
 log_info "Configuring project with CMake..."
-cmake .. \
+cmake "${SCRIPT_DIR}" \
     -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
     -DPLATFORM=$PLATFORM \
     -G "Ninja"

@@ -188,3 +188,35 @@ add_firmware_target(
     LINKER_SCRIPT ${LINKER_SCRIPT}
     SYSTEM_FILE ${SYSTEM_FILE}
 )
+
+# ─── Post-build: generate .bin and .hex ──────────────────────────────────────
+set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/release)
+file(MAKE_DIRECTORY ${OUTPUT_DIR})
+
+# .bin
+add_custom_command(TARGET blink_led POST_BUILD
+    COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:blink_led> ${OUTPUT_DIR}/blink_led.bin
+    COMMENT "Generating binary image..."
+)
+
+# .hex
+add_custom_command(TARGET blink_led POST_BUILD
+    COMMAND ${CMAKE_OBJCOPY} -O ihex $<TARGET_FILE:blink_led> ${OUTPUT_DIR}/blink_led.hex
+    COMMENT "Generating hex image..."
+)
+
+# .elf (copy with platform name)
+add_custom_command(TARGET blink_led POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:blink_led> ${OUTPUT_DIR}/blink_led.elf
+    COMMENT "Copying ELF file..."
+)
+
+# Print summary
+add_custom_command(TARGET blink_led POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E echo "┌─────────────────────────────────────────────────┐"
+    COMMAND ${CMAKE_COMMAND} -E echo "│  Firmware images generated in: release/         │"
+    COMMAND ${CMAKE_COMMAND} -E echo "│    blink_led.elf  — debug symbol file           │"
+    COMMAND ${CMAKE_COMMAND} -E echo "│    blink_led.bin  — raw binary for flashing     │"
+    COMMAND ${CMAKE_COMMAND} -E echo "│    blink_led.hex  — Intel HEX for programmers   │"
+    COMMAND ${CMAKE_COMMAND} -E echo "└─────────────────────────────────────────────────┘"
+)

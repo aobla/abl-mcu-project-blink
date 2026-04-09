@@ -19,15 +19,10 @@ abl-mcu-project-blink/
 │   └── main.c             # Основной код приложения
 └── config/
     ├── stm32f4_board_config.yml
-    ├── stm32f4_board_pinmux.yml
     ├── stm32f103_board_config.yml
-    ├── stm32f103_board_pinmux.yml
     ├── stm32h743_board_config.yml
-    ├── stm32h743_board_pinmux.yml
     ├── esp32_board_config.yml
-    ├── esp32_board_pinmux.yml
-    ├── avr_board_config.yml
-    └── avr_board_pinmux.yml
+    └── avr_board_config.yml
 ```
 
 ## Код приложения
@@ -84,8 +79,7 @@ int main(void) {
 ## Конфигурация
 
 Конфигурация для каждой платформы задается в соответствующих YAML-файлах:
-- `*_board_config.yml` - частоты, память, включенные фичи
-- `*_board_pinmux.yml` - назначение пинов
+- `*_board_config.yml` - частоты, память, включенные фичи, назначение пинов
 
 ## Требования
 
