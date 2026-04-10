@@ -143,27 +143,138 @@ show_help() {
     cat << EOF
 Usage: $0 [OPTIONS]
 
+Build firmware from *_config.yml. If no config specified, uses the first
+*_config.yml found in the project directory.
+
 OPTIONS:
-    -p, --platform PLATFORM    Target platform (stm32f4, stm32f103, stm32h743, esp32, avr)
-    -t, --type BUILD_TYPE      Build type (Debug, Release, RelWithDebInfo, MinSizeRel)
-    -c, --clean              Clean build directory before building
-    -h, --help               Show this help message
+    -C, --config CONFIG_FILE   Config file (default: first *_config.yml)
+    -p, --platform PLATFORM    Target platform (overrides config)
+    -t, --type BUILD_TYPE      Build type (overrides config)
+    -c, --clean                Clean build directory for this platform
+    -h, --help                 Show this help message
 
 EXAMPLES:
-    $0 -p stm32f4                    # Build for STM32F4 in Release mode
-    $0 -p esp32 -t Debug             # Build for ESP32 in Debug mode
-    $0 -p avr -c                     # Clean build and compile for AVR
+    $0                              # Build from config, defaults
+    $0 -c                           # Clean and rebuild
+    $0 -p stm32f4 -t Debug          # Override platform and type
+    $0 -C myproject_config.yml      # Use specific config
 EOF
 }
 
-# Инициализация переменных
+# ─── YAML parser ─────────────────────────────────────────────────────────────
+yaml_get() {
+    local file="$1"
+    local query="$2"
+    python3 -c "
+import yaml, sys
+with open('$file') as f:
+    data = yaml.safe_load(f)
+keys = '$query'.split('.')
+result = data
+for k in keys:
+    if isinstance(result, dict):
+        result = result.get(k)
+    else:
+        result = None
+        break
+if result is None:
+    sys.exit(1)
+print(result)
+"
+}
+
+# ─── Find config file ────────────────────────────────────────────────────────
+find_config() {
+    local configs=("${SCRIPT_DIR}/config/"*_config.yml)
+    if [[ ${#configs[@]} -eq 0 ]]; then
+        log_error "No *_config.yml found in $SCRIPT_DIR/config/"
+        log_info "Create a config file: config/myproject_config.yml"
+        exit 1
+    elif [[ ${#configs[@]} -eq 1 ]]; then
+        echo "${configs[0]}"
+    else
+        log_warn "Multiple config files found:"
+        for c in "${configs[@]}"; do
+            log_warn "  $(basename "$c")"
+        done
+        log_info "Specify one with: $0 -C <config>"
+        exit 1
+    fi
+}
+
+# ─── Initialize variables ────────────────────────────────────────────────────
+CONFIG_FILE=""
 PLATFORM=""
-BUILD_TYPE="Release"
+BUILD_TYPE=""
 CLEAN=false
 
-# Парсинг аргументов
+# Save original args
+ORIGINAL_ARGS=("$@")
+
+# ─── Parse arguments (first pass — find config file) ─────────────────────────
 while [[ $# -gt 0 ]]; do
     case $1 in
+        -C|--config)
+            CONFIG_FILE="$2"
+            shift 2
+            ;;
+        -p|--platform|-t|--type|-c|--clean|-h|--help)
+            shift; [[ "$1" != -* ]] && shift
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
+# Reset and parse again with config known
+set -- "${ORIGINAL_ARGS[@]}"
+
+# Find config if not specified
+if [[ -z "$CONFIG_FILE" ]]; then
+    CONFIG_FILE=$(find_config)
+fi
+
+if [[ ! -f "$CONFIG_FILE" ]]; then
+    log_error "Config file not found: $CONFIG_FILE"
+    exit 1
+fi
+
+log_info "Using config: $(basename "$CONFIG_FILE")"
+
+# Resolve platform config path (relative to project root)
+PLATFORM_CONFIG_REL=$(yaml_get "$CONFIG_FILE" "hardware.platform" 2>/dev/null) || true
+if [[ -n "$PLATFORM_CONFIG_REL" && "$PLATFORM_CONFIG_REL" != /* ]]; then
+    PLATFORM_CONFIG="${SCRIPT_DIR}/${PLATFORM_CONFIG_REL}"
+else
+    PLATFORM_CONFIG="$PLATFORM_CONFIG_REL"
+fi
+
+if [[ ! -f "$PLATFORM_CONFIG" ]]; then
+    log_error "Platform config not found: $PLATFORM_CONFIG"
+    log_info "Check hardware.platform in $(basename "$CONFIG_FILE")"
+    exit 1
+fi
+
+# Read defaults from platform config
+CONFIG_PLATFORM=$(yaml_get "$PLATFORM_CONFIG" "platform" 2>/dev/null) || true
+CONFIG_BUILD_TYPE=$(yaml_get "$CONFIG_FILE" "build.type" 2>/dev/null) || true
+CONFIG_PROJECT_NAME=$(yaml_get "$CONFIG_FILE" "project.name" 2>/dev/null) || true
+CONFIG_OUTPUT_NAME=$(yaml_get "$CONFIG_FILE" "build.output" 2>/dev/null) || true
+
+# Apply config defaults (CLI overrides later)
+PLATFORM="${PLATFORM:-$CONFIG_PLATFORM}"
+BUILD_TYPE="${BUILD_TYPE:-$CONFIG_BUILD_TYPE}"
+BUILD_TYPE="${BUILD_TYPE:-Release}"
+PROJECT_NAME="${CONFIG_PROJECT_NAME:-abl-project}"
+OUTPUT_NAME="${CONFIG_OUTPUT_NAME:-$PROJECT_NAME}"
+
+# ─── Parse arguments (second pass — apply overrides) ─────────────────────────
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -C|--config)
+            shift 2
+            ;;
         -p|--platform)
             PLATFORM="$2"
             shift 2
@@ -217,6 +328,16 @@ log_info "Build type: $BUILD_TYPE"
 # Platform-specific build directory
 BUILD_DIR="${BUILD_BASE_DIR}/${PLATFORM}"
 
+# Read target files from config (prepend SCRIPT_DIR for absolute paths)
+STARTUP_FILE=$(yaml_get "$CONFIG_FILE" "target.startup" 2>/dev/null) || true
+LINKER_SCRIPT=$(yaml_get "$CONFIG_FILE" "target.linker" 2>/dev/null) || true
+SYSTEM_FILE=$(yaml_get "$CONFIG_FILE" "target.system" 2>/dev/null) || true
+
+# Make paths absolute
+[[ -n "$STARTUP_FILE" && "$STARTUP_FILE" != /* ]] && STARTUP_FILE="${SCRIPT_DIR}/${STARTUP_FILE}"
+[[ -n "$LINKER_SCRIPT" && "$LINKER_SCRIPT" != /* ]] && LINKER_SCRIPT="${SCRIPT_DIR}/${LINKER_SCRIPT}"
+[[ -n "$SYSTEM_FILE" && "$SYSTEM_FILE" != /* ]] && SYSTEM_FILE="${SCRIPT_DIR}/${SYSTEM_FILE}"
+
 # Проверка git-зависимостей (core, drivers, etc.)
 if ! check_git_deps; then
     log_warn "Git dependencies not found in lib/"
@@ -256,6 +377,12 @@ log_info "Configuring project with CMake..."
 cmake "${SCRIPT_DIR}" \
     -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
     -DPLATFORM=$PLATFORM \
+    -DPROJECT_NAME=$PROJECT_NAME \
+    -DOUTPUT_NAME=$OUTPUT_NAME \
+    -DCONFIG_FILE="${PLATFORM_CONFIG}" \
+    -DSTARTUP_FILE="${STARTUP_FILE}" \
+    -DLINKER_SCRIPT="${LINKER_SCRIPT}" \
+    -DSYSTEM_FILE="${SYSTEM_FILE}" \
     -G "Ninja"
 
 # Сборка проекта

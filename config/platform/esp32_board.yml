@@ -1,0 +1,21 @@
+platform: esp32
+cpu: xtensa-lx6
+frequencies:
+  apb_freq: 80000000
+  cpu_freq: 240000000
+memory:
+  flash: 4194304
+  ram: 524288
+pins:
+  led:
+    port: 2
+    pin: 0
+    mode: output
+  uart_tx:
+    port: 1
+    pin: 0
+    mode: alt_function
+  uart_rx:
+    port: 3
+    pin: 0
+    mode: alt_function

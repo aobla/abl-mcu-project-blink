@@ -5,12 +5,8 @@ frequencies:
   pclk1: 42000000
   pclk2: 84000000
 memory:
-  flash: 1048576    # 1MB
-  ram: 131072       # 128KB
-features:
-  enable_log: true
-  enable_cli: false
-  enable_ota: false
+  flash: 1048576
+  ram: 131072
 pins:
   led:
     port: GPIOA

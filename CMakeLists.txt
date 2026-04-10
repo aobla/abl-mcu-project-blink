@@ -1,5 +1,12 @@
 cmake_minimum_required(VERSION 3.20)
 
+# ─── Project name (from CLI or default) ──────────────────────────────────────
+if(DEFINED PROJECT_NAME)
+    set(_PROJECT_NAME "${PROJECT_NAME}")
+else()
+    set(_PROJECT_NAME "abl-mcu-project")
+endif()
+
 # ─── Resolve platform-core path BEFORE project() ─────────────────────────────
 if(DEFINED ENV{ABL_DEPS_PATH} AND EXISTS "$ENV{ABL_DEPS_PATH}/abl-mcu-platform-core/CMakeLists.txt")
     set(_PCORE_DIR "$ENV{ABL_DEPS_PATH}/abl-mcu-platform-core")
@@ -40,7 +47,7 @@ if(DEFINED PLATFORM)
     endif()
 endif()
 
-project(abl-mcu-project-blink C CXX ASM)
+project(${_PROJECT_NAME} C CXX ASM)
 
 # ─── Platform define — MUST be before add_subdirectory(platformcore) ──────────
 string(TOUPPER "${PLATFORM}" PLATFORM_UPPER)
@@ -101,30 +108,22 @@ else()
     message(WARNING "platform-core version not detected, assuming v1.0.0")
 endif()
 
+# ─── Config file (platform hardware config, passed from build.sh) ────────────
+if(DEFINED CONFIG_FILE AND EXISTS "${CONFIG_FILE}")
+    set(PLATFORM_CONFIG "${CONFIG_FILE}")
+else()
+    message(FATAL_ERROR "CONFIG_FILE not set or not found. Pass via -DCONFIG_FILE=... or use build.sh")
+endif()
+
 # ─── Generated files — custom target so target_init can depend on them ────────
 set(GEN_DIR ${CMAKE_BINARY_DIR}/generated)
 file(MAKE_DIRECTORY ${GEN_DIR})
 
-# Determine config file (single YAML with platform + pins)
-if(PLATFORM MATCHES "^stm32.*")
-    if(PLATFORM STREQUAL "stm32")
-        set(CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/config/stm32f4_board_config.yml)
-    else()
-        set(CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/config/${PLATFORM}_board_config.yml)
-    endif()
-elseif(PLATFORM STREQUAL "esp32")
-    set(CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/config/esp32_board_config.yml)
-elseif(PLATFORM STREQUAL "avr")
-    set(CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/config/avr_board_config.yml)
-else()
-    set(CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/config/stm32f4_board_config.yml)
-endif()
-
 # Generate hardware_config.h
 add_custom_command(
     OUTPUT ${GEN_DIR}/hardware_config.h
-    COMMAND python3 ${platformcore_SOURCE_DIR}/scripts/gen_config_v1.0.py ${CONFIG_FILE}
-    DEPENDS ${CONFIG_FILE}
+    COMMAND python3 ${platformcore_SOURCE_DIR}/scripts/gen_config_v1.0.py ${PLATFORM_CONFIG}
+    DEPENDS ${PLATFORM_CONFIG}
             ${platformcore_SOURCE_DIR}/scripts/gen_config_v1.0.py
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Generating hardware_config.h"
@@ -133,39 +132,22 @@ add_custom_command(
 # Generate pinmux (hardware_pins.h + generated_gpio_init.c)
 add_custom_command(
     OUTPUT ${GEN_DIR}/hardware_pins.h ${GEN_DIR}/generated_gpio_init.c
-    COMMAND python3 ${platformcore_SOURCE_DIR}/scripts/gen_pinmux_v1.0.py ${CONFIG_FILE}
-    DEPENDS ${CONFIG_FILE}
+    COMMAND python3 ${platformcore_SOURCE_DIR}/scripts/gen_pinmux_v1.0.py ${PLATFORM_CONFIG}
+    DEPENDS ${PLATFORM_CONFIG}
             ${platformcore_SOURCE_DIR}/scripts/gen_pinmux_v1.0.py
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Generating pinmux"
 )
 
 # ─── Platform-specific startup + linker script ───────────────────────────────
-# Explicit mapping: PLATFORM → startup.s + linker.ld + system.c
-if(PLATFORM STREQUAL "stm32f103")
-    set(STARTUP_FILE ${CMAKE_CURRENT_SOURCE_DIR}/target/stm32/startup_stm32f103x6.s)
-    set(LINKER_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/target/stm32/STM32F103X6_FLASH.ld)
-    set(SYSTEM_FILE ${CMAKE_CURRENT_SOURCE_DIR}/target/stm32/system_stm32f1xx.c)
-elseif(PLATFORM STREQUAL "stm32f4")
-    set(STARTUP_FILE ${CMAKE_CURRENT_SOURCE_DIR}/target/stm32/startup_stm32f407xx.s)
-    set(LINKER_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/target/stm32/STM32F407XG_FLASH.ld)
-    set(SYSTEM_FILE ${CMAKE_CURRENT_SOURCE_DIR}/target/stm32/system_stm32f4xx.c)
-elseif(PLATFORM STREQUAL "stm32h743")
-    set(STARTUP_FILE ${CMAKE_CURRENT_SOURCE_DIR}/target/stm32/startup_stm32h743xx.s)
-    set(LINKER_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/target/stm32/STM32H743XIGHX_FLASH.ld)
-    set(SYSTEM_FILE ${CMAKE_CURRENT_SOURCE_DIR}/target/stm32/system_stm32h7xx.c)
-elseif(PLATFORM STREQUAL "esp32")
-    set(STARTUP_FILE "")
-    set(LINKER_SCRIPT "")
-    set(SYSTEM_FILE "")
-elseif(PLATFORM STREQUAL "avr")
-    set(STARTUP_FILE "")
-    set(LINKER_SCRIPT "")
-    set(SYSTEM_FILE "")
-else()
-    message(FATAL_ERROR "No startup/linker mapping for platform: ${PLATFORM}. "
-                        "Add an entry in CMakeLists.txt")
+# Expected from CLI (build.sh reads them from _config.yml)
+if(NOT DEFINED STARTUP_FILE OR STARTUP_FILE STREQUAL "")
+    message(FATAL_ERROR "STARTUP_FILE not set. Pass via -DSTARTUP_FILE=... or use build.sh")
 endif()
+if(NOT DEFINED LINKER_SCRIPT OR LINKER_SCRIPT STREQUAL "")
+    message(FATAL_ERROR "LINKER_SCRIPT not set. Pass via -DLINKER_SCRIPT=... or use build.sh")
+endif()
+# SYSTEM_FILE is optional
 
 # Custom target to trigger generation
 add_custom_target(generated_files DEPENDS
@@ -178,11 +160,18 @@ add_custom_target(generated_files DEPENDS
 add_subdirectory(target)
 add_dependencies(target_init generated_files)
 
+# ─── Output name (from CLI or default) ───────────────────────────────────────
+if(DEFINED OUTPUT_NAME AND NOT OUTPUT_NAME STREQUAL "")
+    set(_OUTPUT_NAME "${OUTPUT_NAME}")
+else()
+    set(_OUTPUT_NAME "blink_led")
+endif()
+
 # 3. Создаём прошивку
 add_firmware_target(
-    NAME blink_led
+    NAME ${_OUTPUT_NAME}
     PLATFORM ${PLATFORM}
-    CONFIG ${CONFIG_FILE}
+    CONFIG ${PLATFORM_CONFIG}
     SOURCES src/main.c
     STARTUP_FILE ${STARTUP_FILE}
     LINKER_SCRIPT ${LINKER_SCRIPT}
@@ -194,29 +183,30 @@ set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/release)
 file(MAKE_DIRECTORY ${OUTPUT_DIR})
 
 # .bin
-add_custom_command(TARGET blink_led POST_BUILD
-    COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:blink_led> ${OUTPUT_DIR}/blink_led.bin
+add_custom_command(TARGET ${_OUTPUT_NAME} POST_BUILD
+    COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:${_OUTPUT_NAME}> ${OUTPUT_DIR}/${_OUTPUT_NAME}.bin
     COMMENT "Generating binary image..."
 )
 
 # .hex
-add_custom_command(TARGET blink_led POST_BUILD
-    COMMAND ${CMAKE_OBJCOPY} -O ihex $<TARGET_FILE:blink_led> ${OUTPUT_DIR}/blink_led.hex
+add_custom_command(TARGET ${_OUTPUT_NAME} POST_BUILD
+    COMMAND ${CMAKE_OBJCOPY} -O ihex $<TARGET_FILE:${_OUTPUT_NAME}> ${OUTPUT_DIR}/${_OUTPUT_NAME}.hex
     COMMENT "Generating hex image..."
 )
 
 # .elf (copy with platform name)
-add_custom_command(TARGET blink_led POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:blink_led> ${OUTPUT_DIR}/blink_led.elf
+add_custom_command(TARGET ${_OUTPUT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_OUTPUT_NAME}> ${OUTPUT_DIR}/${_OUTPUT_NAME}.elf
     COMMENT "Copying ELF file..."
 )
 
 # Print summary
-add_custom_command(TARGET blink_led POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E echo "┌─────────────────────────────────────────────────┐"
-    COMMAND ${CMAKE_COMMAND} -E echo "│  Firmware images generated in: release/         │"
-    COMMAND ${CMAKE_COMMAND} -E echo "│    blink_led.elf  — debug symbol file           │"
-    COMMAND ${CMAKE_COMMAND} -E echo "│    blink_led.bin  — raw binary for flashing     │"
-    COMMAND ${CMAKE_COMMAND} -E echo "│    blink_led.hex  — Intel HEX for programmers   │"
-    COMMAND ${CMAKE_COMMAND} -E echo "└─────────────────────────────────────────────────┘"
+add_custom_command(TARGET ${_OUTPUT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E echo "─────────────────────────────────────────────────────────────────────"
+    COMMAND ${CMAKE_COMMAND} -E echo "  Firmware images generated in: build/${PLATFORM}/release/"
+    COMMAND ${CMAKE_COMMAND} -E echo "    ${_OUTPUT_NAME}.elf  — debug symbol file"
+    COMMAND ${CMAKE_COMMAND} -E echo "    ${_OUTPUT_NAME}.bin  — raw binary for flashing"
+    COMMAND ${CMAKE_COMMAND} -E echo "    ${_OUTPUT_NAME}.hex  — Intel HEX for programmers"
+    COMMAND ${CMAKE_COMMAND} -E echo "─────────────────────────────────────────────────────────────────────"
+
 )
