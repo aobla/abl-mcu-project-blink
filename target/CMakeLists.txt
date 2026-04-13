@@ -51,7 +51,7 @@ endif()
 
 # Platform define
 target_compile_definitions(target_init PRIVATE
-    PLATFORM_${PLATFORM}
+    PLATFORM_${PLATFORM_UPPER}
 )
 
 # Include paths для сгенерированных файлов (hardware_config.h, hardware_pins.h)

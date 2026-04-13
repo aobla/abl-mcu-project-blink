@@ -14,6 +14,18 @@
 #endif
 
 /**
+ * @brief SysTick handler — required for HAL_Delay()
+ *
+ * HAL_Init() enables SysTick, but the startup file maps SysTick_Handler
+ * to Default_Handler (infinite loop). This override increments uwTick
+ * so HAL_Delay() actually works.
+ */
+void SysTick_Handler(void)
+{
+    HAL_IncTick();
+}
+
+/**
  * @brief Инициализация тактирования STM32
  */
 static void SystemClock_Config(void)

@@ -21,7 +21,7 @@ hardware:
   id: blink-led-v1-stm32f103c6
 
 build:
-  type: Release               # default build type
+  type: Debug               # default build type
   # output: blink-led-stm32f103 # firmware binary name (default = project.name)
 
 # Target files for this specific build (paths relative to project root)
