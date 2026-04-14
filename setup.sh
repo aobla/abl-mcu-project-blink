@@ -338,7 +338,18 @@ clone_git_repo() {
     fi
 
     mkdir -p "$(dirname "$dest")"
-    git clone --branch "$tag" --depth 1 "$url" "$dest"
+
+    # If dest exists and has content (from other repos), clone to temp and merge
+    if [[ -d "$dest" ]] && [[ -n "$(ls -A "$dest" 2>/dev/null)" ]]; then
+        local tmp_dir
+        tmp_dir=$(mktemp -d)
+        git clone --branch "$tag" --depth 1 "$url" "$tmp_dir"
+        # Copy contents, preserving existing dirs
+        (cd "$tmp_dir" && tar cf - .) | (cd "$dest" && tar xf -)
+        rm -rf "$tmp_dir"
+    else
+        git clone --branch "$tag" --depth 1 "$url" "$dest"
+    fi
     log_ok "$name cloned to $dest"
 }
 
@@ -377,7 +388,6 @@ print('true' if isinstance(data, list) else 'false')
             local dest="$install_dir"
             if [[ -n "$repo_subdir" ]]; then
                 dest="$install_dir/$repo_subdir"
-                mkdir -p "$dest"
             fi
 
             local repo_name
@@ -535,12 +545,6 @@ install_sdk() {
 
     log_info "Setting up SDK: $sdk_name"
 
-    # Check if already installed
-    if [[ "$FORCE" != true ]] && check_sdk_installed "$sdk_name"; then
-        log_skip "SDK already installed"
-        return 0
-    fi
-
     # Check if git is a list (multi-repo) or scalar
     local is_list
     is_list=$(yaml_get_list "$PREREQ_FILE" "sdks.${sdk_name}.git" 2>/dev/null | python3 -c "
@@ -549,9 +553,16 @@ data = json.load(sys.stdin)
 print('true' if isinstance(data, list) else 'false')
 " 2>/dev/null) || true
 
+    # For multi-repo SDKs, skip the installed check — let the loop handle each repo
     if [[ "$is_list" == "true" ]]; then
         install_sdk_from_git "$sdk_name"
         return $?
+    fi
+
+    # Single repo: check if already installed
+    if [[ "$FORCE" != true ]] && check_sdk_installed "$sdk_name"; then
+        log_skip "SDK already installed"
+        return 0
     fi
 
     # Single git repo

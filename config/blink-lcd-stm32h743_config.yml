@@ -1,34 +1,34 @@
-# blink-led-stm32f103_config.yml
+# blink-led-stm32h743_config.yml
 #
 # Project configuration — single source of truth for build system.
 # Copy this file and rename to <your-project>_config.yml for new projects.
 
 project:
-  name: blink-led-stm32f103
-  description: "LED blink demo for stm32f103 board"
+  name: blink-led-stm32h743
+  description: "LED blink demo for stm32h743 board"
   version: "1.0.0"
 
 hardware:
   board:
-    name: bluepill
+    name: devebox
     version: "1.0"
   mcu:
-    family: stm32f1
-    part: STM32F103C6T6
+    family: stm32h7
+    part: STM32H743VIT6
   # Path to platform hardware config (relative to project root)
-  platform: config/platform/stm32f103_board.yml
+  platform: config/platform/stm32h743_board.yml
   # Unique ID for PCB+MCU+firmware combination (optional)
-  id: blink-led-v1-stm32f103c6
+  id: blink-led-v1-stm32h743vi
 
 build:
   type: Debug               # default build type
-  # output: blink-led-stm32f103 # firmware binary name (default = project.name)
+  # output: blink-led-stm32h743 # firmware binary name (default = project.name)
 
 # Target files for this specific build (paths relative to project root)
 target:
-  startup: target/stm32/extra/startup_stm32f103x6.s
-  linker:  target/stm32/extra/STM32F103X6_FLASH.ld
-  system:  target/stm32/extra/system_stm32f1xx.c
+  startup: target/stm32/extra/startup_stm32h743xx.s
+  linker:  target/stm32/extra/STM32H743XI_FLASH.ld
+  system:  target/stm32/extra/system_stm32h7xx.c
 
 # App-specific features (not shared across projects)
 features:

@@ -9,14 +9,15 @@ memory:
   ram: 1048576
 pins:
   led:
+    port: GPIOA
+    pin: 1
+    mode: output
+    state: low
+  uart_tx:
     port: GPIOB
     pin: 14
-    mode: output
-  uart_tx:
-    port: GPIOA
-    pin: 9
     mode: alt_function
   uart_rx:
-    port: GPIOA
-    pin: 10
+    port: GPIOB
+    pin: 15
     mode: alt_function

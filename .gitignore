@@ -34,6 +34,3 @@ compile_commands.json
 _FetchContent*
 platformcore-src/
 lib/
-
-# Debug
-*.svd:Zone.Identifier

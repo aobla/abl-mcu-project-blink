@@ -54,6 +54,15 @@ target_compile_definitions(target_init PRIVATE
     PLATFORM_${PLATFORM_UPPER}
 )
 
+# Device define for STM32 HAL (required by stm32Xxxxx.h)
+if(PLATFORM MATCHES "^stm32f103")
+    target_compile_definitions(target_init PRIVATE STM32F103x6)
+elseif(PLATFORM MATCHES "^stm32f4")
+    target_compile_definitions(target_init PRIVATE STM32F407xx)
+elseif(PLATFORM MATCHES "^stm32h743")
+    target_compile_definitions(target_init PRIVATE STM32H743xx)
+endif()
+
 # Include paths для сгенерированных файлов (hardware_config.h, hardware_pins.h)
 target_include_directories(target_init PRIVATE
     ${CMAKE_BINARY_DIR}/generated
