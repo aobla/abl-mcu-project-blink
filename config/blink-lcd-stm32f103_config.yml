@@ -26,9 +26,9 @@ build:
 
 # Target files for this specific build (paths relative to project root)
 target:
-  startup: target/stm32/startup_stm32f103x6.s
-  linker:  target/stm32/STM32F103X6_FLASH.ld
-  system:  target/stm32/system_stm32f1xx.c
+  startup: target/stm32/extra/startup_stm32f103x6.s
+  linker:  target/stm32/extra/STM32F103X6_FLASH.ld
+  system:  target/stm32/extra/system_stm32f1xx.c
 
 # App-specific features (not shared across projects)
 features:

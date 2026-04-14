@@ -13,11 +13,11 @@
 #endif
 
 /* ─── Platform HAL ──────────────────────────────────────────────────────── */
-#include "hal/gpio.h"
-#include "hal/delay.h"
+#include "abl_gpio.h"
+#include "abl_delay.h"
 
 /* ─── Target init ───────────────────────────────────────────────────────── */
-#include "target_init.h"
+#include "abl_target_init.h"
 
 /* ─── Generated configs (from YAML) ─────────────────────────────────────── */
 #include "hardware_config.h"

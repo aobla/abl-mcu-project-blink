@@ -1,28 +1,28 @@
 # target/CMakeLists.txt
-# Реализация target_init() для конкретного проекта
+# Реализация abl_target_init() для конкретного проекта
 # Каждый проект определяет свою инициализацию платформы
 
 # Определяем файлы в зависимости от выбранной платформы
 if(PLATFORM MATCHES "^stm32.*")
     set(TARGET_SOURCES
-        ${CMAKE_CURRENT_SOURCE_DIR}/stm32/init/stm32_target_init.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/stm32/stm32_target_init.c
     )
     set(TARGET_INCLUDES
-        ${CMAKE_CURRENT_SOURCE_DIR}/stm32
+        ${CMAKE_CURRENT_SOURCE_DIR}/stm32/extra
     )
 elseif(PLATFORM STREQUAL "esp32")
     set(TARGET_SOURCES
-        ${CMAKE_CURRENT_SOURCE_DIR}/esp32/init/esp32_target_init.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/esp32/esp32_target_init.c
     )
     set(TARGET_INCLUDES
-        ${CMAKE_CURRENT_SOURCE_DIR}/esp32
+        ${CMAKE_CURRENT_SOURCE_DIR}/esp32/extra
     )
 elseif(PLATFORM STREQUAL "avr")
     set(TARGET_SOURCES
-        ${CMAKE_CURRENT_SOURCE_DIR}/avr/init/avr_target_init.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/avr/avr_target_init.c
     )
     set(TARGET_INCLUDES
-        ${CMAKE_CURRENT_SOURCE_DIR}/avr
+        ${CMAKE_CURRENT_SOURCE_DIR}/avr/extra
     )
 else()
     message(FATAL_ERROR "Unsupported platform: ${PLATFORM}")

@@ -119,19 +119,19 @@ static void SystemClock_Config(void)
 #endif
 }
 
-void target_init(void)
+void abl_target_init(void)
 {
     HAL_Init();
     SystemClock_Config();
-    target_gpio_init();
+    abl_target_gpio_init();
 }
 
-void target_gpio_init(void)
+void abl_target_gpio_init(void)
 {
     generated_gpio_init();
 }
 
-void target_delay_ms(uint32_t ms)
+void abl_target_delay_ms(uint32_t ms)
 {
     HAL_Delay(ms);
 }
