@@ -34,3 +34,5 @@ compile_commands.json
 _FetchContent*
 platformcore-src/
 lib/
+# Windows ADS leftover
+*.Zone.Identifier
