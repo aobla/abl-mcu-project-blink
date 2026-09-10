@@ -82,7 +82,7 @@ else()
     include(FetchContent)
     FetchContent_Declare(
         platformcore
-        GIT_REPOSITORY https://github.com/aobla/abl-mcu-platform-core.git
+        GIT_REPOSITORY https://github.com/aobla/abl-mcu-platform.git
         GIT_TAG main
     )
     FetchContent_MakeAvailable(platformcore)
