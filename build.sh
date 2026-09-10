@@ -37,14 +37,14 @@ check_git_deps() {
     # Check if platform-core is available
     local core_path=""
 
-    if [[ -n "$ABL_DEPS_PATH" && -d "$ABL_DEPS_PATH/abl-mcu-platform-core" ]]; then
-        core_path="$ABL_DEPS_PATH/abl-mcu-platform-core"
-    elif [[ -d "$SCRIPT_DIR/lib/abl-mcu-platform-core" ]]; then
-        core_path="$SCRIPT_DIR/lib/abl-mcu-platform-core"
+    if [[ -n "$ABL_DEPS_PATH" && -d "$ABL_DEPS_PATH/abl-mcu-platform" ]]; then
+        core_path="$ABL_DEPS_PATH/abl-mcu-platform"
+    elif [[ -d "$SCRIPT_DIR/lib/abl-mcu-platform" ]]; then
+        core_path="$SCRIPT_DIR/lib/abl-mcu-platform"
     fi
 
     if [[ -n "$core_path" ]]; then
-        log_ok "Git dependency found: abl-mcu-platform-core at $core_path"
+        log_ok "Git dependency found: abl-mcu-platform at $core_path"
         return 0
     else
         return 1

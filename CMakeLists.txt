@@ -8,12 +8,12 @@ else()
 endif()
 
 # ─── Resolve platform-core path BEFORE project() ─────────────────────────────
-if(DEFINED ENV{ABL_DEPS_PATH} AND EXISTS "$ENV{ABL_DEPS_PATH}/abl-mcu-platform-core/CMakeLists.txt")
-    set(_PCORE_DIR "$ENV{ABL_DEPS_PATH}/abl-mcu-platform-core")
-elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../abl-mcu-platform-core/CMakeLists.txt")
-    set(_PCORE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../abl-mcu-platform-core")
-elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/lib/abl-mcu-platform-core/CMakeLists.txt")
-    set(_PCORE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib/abl-mcu-platform-core")
+if(DEFINED ENV{ABL_DEPS_PATH} AND EXISTS "$ENV{ABL_DEPS_PATH}/abl-mcu-platform/CMakeLists.txt")
+    set(_PCORE_DIR "$ENV{ABL_DEPS_PATH}/abl-mcu-platform")
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../abl-mcu-platform/CMakeLists.txt")
+    set(_PCORE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../abl-mcu-platform")
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/lib/abl-mcu-platform/CMakeLists.txt")
+    set(_PCORE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib/abl-mcu-platform")
 else()
     set(_PCORE_DIR "")
 endif()
@@ -60,20 +60,20 @@ add_compile_definitions(USE_HAL_DRIVER)
 
 # ─── Resolve platform-core ───────────────────────────────────────────────────
 # Priority 1: ABL_DEPS_PATH
-# Priority 2: project/lib/abl-mcu-platform-core/
+# Priority 2: project/lib/abl-mcu-platform/
 # Priority 3: FetchContent from git (fallback for CI / fresh clone)
 
-if(DEFINED ENV{ABL_DEPS_PATH} AND EXISTS "$ENV{ABL_DEPS_PATH}/abl-mcu-platform-core/CMakeLists.txt")
-    set(platformcore_SOURCE_DIR "$ENV{ABL_DEPS_PATH}/abl-mcu-platform-core")
+if(DEFINED ENV{ABL_DEPS_PATH} AND EXISTS "$ENV{ABL_DEPS_PATH}/abl-mcu-platform/CMakeLists.txt")
+    set(platformcore_SOURCE_DIR "$ENV{ABL_DEPS_PATH}/abl-mcu-platform")
     add_subdirectory(${platformcore_SOURCE_DIR} ${CMAKE_BINARY_DIR}/_deps/platformcore-build)
     message(STATUS "Using platform-core from ABL_DEPS_PATH: ${platformcore_SOURCE_DIR}")
-elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../abl-mcu-platform-core/CMakeLists.txt")
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../abl-mcu-platform/CMakeLists.txt")
     # Development: sibling directory
-    set(platformcore_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../abl-mcu-platform-core")
+    set(platformcore_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../abl-mcu-platform")
     add_subdirectory(${platformcore_SOURCE_DIR} ${CMAKE_BINARY_DIR}/_deps/platformcore-build)
     message(STATUS "Using sibling platform-core: ${platformcore_SOURCE_DIR}")
-elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/lib/abl-mcu-platform-core/CMakeLists.txt")
-    set(platformcore_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib/abl-mcu-platform-core")
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/lib/abl-mcu-platform/CMakeLists.txt")
+    set(platformcore_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib/abl-mcu-platform")
     add_subdirectory(${platformcore_SOURCE_DIR} ${CMAKE_BINARY_DIR}/_deps/platformcore-build)
     message(STATUS "Using local platform-core: ${platformcore_SOURCE_DIR}")
 else()

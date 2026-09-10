@@ -85,7 +85,7 @@ dependencies:
     git:
       url: "https://github.com/aobla/abl-mcu-platform-core.git"
       tag: "dev"
-    dest: "lib/abl-mcu-platform-core"
+    dest: "lib/abl-mcu-platform"
     required: true
 
   # drivers:
