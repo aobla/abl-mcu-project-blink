@@ -24,12 +24,6 @@ build:
   type: Debug               # default build type
   # output: blink-led-stm32f103 # firmware binary name (default = project.name)
 
-# Target files for this specific build (paths relative to project root)
-target:
-  startup: target/stm32/extra/startup_stm32f103x6.s
-  linker:  target/stm32/extra/STM32F103X6_FLASH.ld
-  system:  target/stm32/extra/system_stm32f1xx.c
-
 # App-specific features (not shared across projects)
 features:
   enable_log: true

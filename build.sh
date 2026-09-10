@@ -328,16 +328,6 @@ log_info "Build type: $BUILD_TYPE"
 # Platform-specific build directory
 BUILD_DIR="${BUILD_BASE_DIR}/${PLATFORM}"
 
-# Read target files from config (prepend SCRIPT_DIR for absolute paths)
-STARTUP_FILE=$(yaml_get "$CONFIG_FILE" "target.startup" 2>/dev/null) || true
-LINKER_SCRIPT=$(yaml_get "$CONFIG_FILE" "target.linker" 2>/dev/null) || true
-SYSTEM_FILE=$(yaml_get "$CONFIG_FILE" "target.system" 2>/dev/null) || true
-
-# Make paths absolute
-[[ -n "$STARTUP_FILE" && "$STARTUP_FILE" != /* ]] && STARTUP_FILE="${SCRIPT_DIR}/${STARTUP_FILE}"
-[[ -n "$LINKER_SCRIPT" && "$LINKER_SCRIPT" != /* ]] && LINKER_SCRIPT="${SCRIPT_DIR}/${LINKER_SCRIPT}"
-[[ -n "$SYSTEM_FILE" && "$SYSTEM_FILE" != /* ]] && SYSTEM_FILE="${SCRIPT_DIR}/${SYSTEM_FILE}"
-
 # Проверка git-зависимостей (core, drivers, etc.)
 if ! check_git_deps; then
     log_warn "Git dependencies not found in lib/"
@@ -380,9 +370,6 @@ cmake "${SCRIPT_DIR}" \
     -DPROJECT_NAME=$PROJECT_NAME \
     -DOUTPUT_NAME=$OUTPUT_NAME \
     -DCONFIG_FILE="${PLATFORM_CONFIG}" \
-    -DSTARTUP_FILE="${STARTUP_FILE}" \
-    -DLINKER_SCRIPT="${LINKER_SCRIPT}" \
-    -DSYSTEM_FILE="${SYSTEM_FILE}" \
     -G "Ninja"
 
 # Сборка проекта

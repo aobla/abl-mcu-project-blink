@@ -53,9 +53,8 @@ project(${_PROJECT_NAME} C CXX ASM)
 string(TOUPPER "${PLATFORM}" PLATFORM_UPPER)
 add_compile_definitions(PLATFORM_${PLATFORM_UPPER})
 
-# ─── HAL config headers (project-specific) ───────────────────────────────────
-# These live in project's include/ and must be available to HAL sources
-set(HAL_CONFIG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# STM32 HAL конфигурируется SoC (hal_conf живёт в soc/); define нужен по всему
+# проекту, т.к. app.h подтягивает vendor-заголовки ради макросов пинов.
 add_compile_definitions(USE_HAL_DRIVER)
 
 # ─── Resolve platform-core ───────────────────────────────────────────────────
@@ -86,17 +85,6 @@ else()
         GIT_TAG main
     )
     FetchContent_MakeAvailable(platformcore)
-endif()
-
-# Add project include directory to all targets
-if(DEFINED HAL_CONFIG_DIR AND TARGET hal_stm32)
-    target_include_directories(hal_stm32 PUBLIC ${HAL_CONFIG_DIR})
-endif()
-if(DEFINED HAL_CONFIG_DIR AND TARGET target_init)
-    target_include_directories(target_init PUBLIC ${HAL_CONFIG_DIR})
-endif()
-if(DEFINED HAL_CONFIG_DIR AND TARGET blink_led)
-    target_include_directories(blink_led PUBLIC ${HAL_CONFIG_DIR})
 endif()
 
 # Проверка версии platform-core
@@ -139,26 +127,12 @@ add_custom_command(
     COMMENT "Generating pinmux"
 )
 
-# ─── Platform-specific startup + linker script ───────────────────────────────
-# Expected from CLI (build.sh reads them from _config.yml)
-if(NOT DEFINED STARTUP_FILE OR STARTUP_FILE STREQUAL "")
-    message(FATAL_ERROR "STARTUP_FILE not set. Pass via -DSTARTUP_FILE=... or use build.sh")
-endif()
-if(NOT DEFINED LINKER_SCRIPT OR LINKER_SCRIPT STREQUAL "")
-    message(FATAL_ERROR "LINKER_SCRIPT not set. Pass via -DLINKER_SCRIPT=... or use build.sh")
-endif()
-# SYSTEM_FILE is optional
-
 # Custom target to trigger generation
 add_custom_target(generated_files DEPENDS
     ${GEN_DIR}/hardware_config.h
     ${GEN_DIR}/hardware_pins.h
     ${GEN_DIR}/generated_gpio_init.c
 )
-
-# 2. Target init — реализация проекта (тактирование, GPIO, периферия)
-add_subdirectory(target)
-add_dependencies(target_init generated_files)
 
 # ─── Output name (from CLI or default) ───────────────────────────────────────
 if(DEFINED OUTPUT_NAME AND NOT OUTPUT_NAME STREQUAL "")
@@ -173,10 +147,10 @@ add_firmware_target(
     PLATFORM ${PLATFORM}
     CONFIG ${PLATFORM_CONFIG}
     SOURCES src/main.c
-    STARTUP_FILE ${STARTUP_FILE}
-    LINKER_SCRIPT ${LINKER_SCRIPT}
-    SYSTEM_FILE ${SYSTEM_FILE}
 )
+
+# Проектный include/ (app.h и т.п.) виден прошивке
+target_include_directories(${_OUTPUT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # ─── Post-build: generate .bin and .hex ──────────────────────────────────────
 set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/release)
