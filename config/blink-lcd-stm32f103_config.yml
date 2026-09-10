@@ -12,9 +12,6 @@ hardware:
   board:
     name: bluepill
     version: "1.0"
-  mcu:
-    family: stm32f1
-    part: STM32F103C6T6
   # Path to platform hardware config (relative to project root)
   platform: config/platform/stm32f103_board.yml
   # Unique ID for PCB+MCU+firmware combination (optional)

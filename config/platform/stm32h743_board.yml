@@ -1,4 +1,6 @@
 platform: stm32h743
+mcu:
+  part: STM32H743VIT6
 cpu: cortex-m7
 frequencies:
   hclk: 400000000

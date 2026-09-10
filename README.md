@@ -12,21 +12,14 @@
 ## Структура проекта
 
 ```
-myproject/
+myproject/                      # тонкий проект: код приложения + конфиги
 ├── CMakeLists.txt              # Универсальная сборка (не требует правок)
 ├── build.sh                    # Скрипт сборки (читает config)
 ├── setup.sh                    # Установка зависимостей
 ├── src/
-│   └── main.c                  # Код приложения
+│   └── main.c                  # Код приложения (abl_main)
 ├── include/
-│   ├── app.h                   # Единый вход — все include приложения
-│   └── stm32f1xx_hal_conf.h    # Конфиг HAL (для STM32)
-├── target/
-│   └── stm32/
-│       ├── init/               # Инициализация платформы
-│       ├── startup_*.s         # Векторы прерываний (из SDK)
-│       ├── system_*.c          # SystemInit (из SDK)
-│       └── *_FLASH.ld          # Линкер-скрипт (из SDK)
+│   └── app.h                   # Единый вход — все include приложения
 └── config/
     ├── myproject_config.yml    # ← Конфиг проекта (app-specific)
     └── platform/
@@ -35,11 +28,14 @@ myproject/
         └── ...
 ```
 
+Bring-up (startup, system, линкер-скрипт, `hal_conf`) в проекте **не лежит** — он
+часть платформы (`abl-mcu-platform/soc/`) и выбирается по `mcu.part` (Шаг 2/3 миграции).
+
 ## Конфигурация
 
 ### Project config (`config/myproject_config.yml`)
 
-Описывает **конкретный проект**: имя, приложение, target-файлы.
+Описывает **конкретный проект**: имя, приложение, фичи.
 
 ```yaml
 project:
@@ -49,10 +45,9 @@ project:
 
 hardware:
   board: { name: myboard, version: "1.0" }
-  mcu:
-    part: STM32F103C8T6
   platform: config/platform/stm32f103_board.yml  # ссылка на hardware config
   id: myboard-v1-stm32f103c8
+  # mcu.part описывается в board-конфиге (D9): board — источник истины о железе
 
 build:
   type: Release
@@ -61,11 +56,6 @@ build:
 features:                    # app-specific (не в hardware config)
   enable_log: true
   enable_cli: false
-
-target:
-  startup: target/stm32/startup_stm32f103x8.s
-  linker:  target/stm32/STM32F103X8_FLASH.ld
-  system:  target/stm32/system_stm32f1xx.c
 ```
 
 ### Platform config (`config/platform/<name>_board.yml`)
@@ -74,6 +64,8 @@ target:
 
 ```yaml
 platform: stm32f103
+mcu:
+  part: STM32F103C8T6   # → SoC-дефиниция в платформе (soc/), R3
 cpu: cortex-m3
 frequencies:
   hclk: 72000000
@@ -162,9 +154,7 @@ build/stm32f103/
 
 3. Отредактируйте `config/myproject_config.yml`:
    - `project.name` — имя проекта
-   - `hardware.mcu.part` — модель МК
-   - `hardware.platform` — путь к platform config
-   - `target.*` — startup, linker, system файлы
+   - `hardware.platform` — путь к board-конфигу (там же `mcu.part`)
 
 4. Соберите:
    ```bash

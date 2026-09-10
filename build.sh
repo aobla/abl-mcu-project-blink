@@ -258,6 +258,7 @@ fi
 
 # Read defaults from platform config
 CONFIG_PLATFORM=$(yaml_get "$PLATFORM_CONFIG" "platform" 2>/dev/null) || true
+MCU_PART=$(yaml_get "$PLATFORM_CONFIG" "mcu.part" 2>/dev/null) || true
 CONFIG_BUILD_TYPE=$(yaml_get "$CONFIG_FILE" "build.type" 2>/dev/null) || true
 CONFIG_PROJECT_NAME=$(yaml_get "$CONFIG_FILE" "project.name" 2>/dev/null) || true
 CONFIG_OUTPUT_NAME=$(yaml_get "$CONFIG_FILE" "build.output" 2>/dev/null) || true
@@ -370,6 +371,7 @@ cmake "${SCRIPT_DIR}" \
     -DPROJECT_NAME=$PROJECT_NAME \
     -DOUTPUT_NAME=$OUTPUT_NAME \
     -DCONFIG_FILE="${PLATFORM_CONFIG}" \
+    -DMCU_PART="${MCU_PART}" \
     -G "Ninja"
 
 # Сборка проекта

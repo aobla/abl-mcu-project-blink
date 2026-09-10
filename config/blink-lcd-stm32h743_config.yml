@@ -12,9 +12,6 @@ hardware:
   board:
     name: devebox
     version: "1.0"
-  mcu:
-    family: stm32h7
-    part: STM32H743VIT6
   # Path to platform hardware config (relative to project root)
   platform: config/platform/stm32h743_board.yml
   # Unique ID for PCB+MCU+firmware combination (optional)

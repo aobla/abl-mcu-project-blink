@@ -4,6 +4,8 @@
 # Shared across projects — do not put app-specific settings here.
 
 platform: stm32f103
+mcu:
+  part: STM32F103C6T6
 cpu: cortex-m3
 frequencies:
   hclk: 72000000
