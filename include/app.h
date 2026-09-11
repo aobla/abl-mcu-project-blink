@@ -4,9 +4,10 @@
 /* ─── Vendor-заголовок платформы (предоставляется SoC-дефиницией) ───────── */
 #include "soc_hal.h"
 
-/* ─── Platform HAL ──────────────────────────────────────────────────────── */
+/* ─── Platform HAL + runtime ────────────────────────────────────────────── */
 #include "abl_gpio.h"
 #include "abl_delay.h"
+#include "abl_runtime.h"
 
 /* ─── Platform entry / target init ──────────────────────────────────────── */
 #include "abl_app.h"

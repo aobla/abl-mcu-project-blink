@@ -286,6 +286,7 @@ log_info "Board: ${PRODUCT_BOARD}"
 CONFIG_PLATFORM=$(yaml_get "$BOARD_FILE" "platform" 2>/dev/null) || true
 MCU_PART=$(yaml_get "$BOARD_FILE" "mcu.part" 2>/dev/null) || true
 CONFIG_BUILD_TYPE=$(yaml_get "$CONFIG_FILE" "build.type" 2>/dev/null) || true
+CONFIG_RUNTIME=$(yaml_get "$CONFIG_FILE" "product.runtime" 2>/dev/null) || true
 PRODUCT_ID=$(yaml_get "$CONFIG_FILE" "product.id" 2>/dev/null) || true
 CONFIG_OUTPUT_NAME=$(yaml_get "$CONFIG_FILE" "build.output" 2>/dev/null) || true
 
@@ -295,6 +296,7 @@ BUILD_TYPE="${BUILD_TYPE:-$CONFIG_BUILD_TYPE}"
 BUILD_TYPE="${BUILD_TYPE:-Release}"
 PROJECT_NAME="${PRODUCT_ID:-abl-project}"
 OUTPUT_NAME="${CONFIG_OUTPUT_NAME:-$PROJECT_NAME}"
+RUNTIME="${CONFIG_RUNTIME:-bare}"
 
 # ─── Parse arguments (second pass — apply overrides) ─────────────────────────
 while [[ $# -gt 0 ]]; do
@@ -351,6 +353,7 @@ fi
 
 log_info "Building project for platform: $PLATFORM"
 log_info "Build type: $BUILD_TYPE"
+log_info "Runtime: $RUNTIME"
 
 # Platform-specific build directory
 BUILD_DIR="${BUILD_BASE_DIR}/${PLATFORM}"
@@ -399,6 +402,7 @@ cmake "${SCRIPT_DIR}" \
     -DAPP_CONFIG="${CONFIG_FILE}" \
     -DBOARD_FILE="${BOARD_FILE}" \
     -DMCU_PART="${MCU_PART}" \
+    -DABL_RUNTIME="${RUNTIME}" \
     -G "Ninja"
 
 # Сборка проекта
