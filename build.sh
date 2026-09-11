@@ -285,6 +285,8 @@ log_info "Board: ${PRODUCT_BOARD}"
 # Read defaults from board + app config
 CONFIG_PLATFORM=$(yaml_get "$BOARD_FILE" "platform" 2>/dev/null) || true
 MCU_PART=$(yaml_get "$BOARD_FILE" "mcu.part" 2>/dev/null) || true
+BOARD_CPU=$(yaml_get "$BOARD_FILE" "cpu" 2>/dev/null) || true
+BOARD_FREQ=$(yaml_get "$BOARD_FILE" "oscillator.freq_hz" 2>/dev/null) || true
 CONFIG_BUILD_TYPE=$(yaml_get "$CONFIG_FILE" "build.type" 2>/dev/null) || true
 CONFIG_RUNTIME=$(yaml_get "$CONFIG_FILE" "product.runtime" 2>/dev/null) || true
 PRODUCT_ID=$(yaml_get "$CONFIG_FILE" "product.id" 2>/dev/null) || true
@@ -402,6 +404,8 @@ cmake "${SCRIPT_DIR}" \
     -DAPP_CONFIG="${CONFIG_FILE}" \
     -DBOARD_FILE="${BOARD_FILE}" \
     -DMCU_PART="${MCU_PART}" \
+    -DAVR_MCU="${BOARD_CPU}" \
+    -DF_CPU_HZ="${BOARD_FREQ}" \
     -DABL_RUNTIME="${RUNTIME}" \
     -G "Ninja"
 
