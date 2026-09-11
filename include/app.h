@@ -1,16 +1,8 @@
 #ifndef APP_H
 #define APP_H
 
-/* ─── Platform-specific headers (must come first for type definitions) ────── */
-#if defined(PLATFORM_STM32F103)
-#include <stm32f1xx_hal.h>
-#elif defined(PLATFORM_STM32F4)
-#include <stm32f4xx_hal.h>
-#elif defined(PLATFORM_STM32H743)
-#include <stm32h7xx_hal.h>
-#elif defined(PLATFORM_ESP32)
-#include <driver/gpio.h>
-#endif
+/* ─── Vendor-заголовок платформы (предоставляется SoC-дефиницией) ───────── */
+#include "soc_hal.h"
 
 /* ─── Platform HAL ──────────────────────────────────────────────────────── */
 #include "abl_gpio.h"

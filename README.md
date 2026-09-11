@@ -21,11 +21,8 @@ myproject/                      # тонкий проект: код прилож
 ├── include/
 │   └── app.h                   # Единый вход — все include приложения
 └── config/
-    ├── myproject_config.yml    # ← Конфиг проекта (app-specific)
-    └── platform/
-        ├── stm32f103_board.yml # ← Hardware config (shared)
-        ├── stm32f4_board.yml
-        └── ...
+    ├── blink_stm32f103.yml     # ← app-конфиг (продукт): board + overlay + фичи
+    └── blink_stm32h743.yml     #    второй продукт на том же src/
 ```
 
 Bring-up (startup, system, линкер-скрипт, `hal_conf`) в проекте **не лежит** — он
@@ -33,61 +30,58 @@ Bring-up (startup, system, линкер-скрипт, `hal_conf`) в проек�
 
 ## Конфигурация
 
-### Project config (`config/myproject_config.yml`)
+### App config (`config/<product>.yml`)
 
 Описывает **конкретный проект**: имя, приложение, фичи.
 
 ```yaml
-project:
-  name: myproject-stm32f103
+product:
+  id: myproject-stm32f103
   description: "My application"
   version: "1.0.0"
-
-hardware:
-  board: { name: myboard, version: "1.0" }
-  platform: config/platform/stm32f103_board.yml  # ссылка на hardware config
-  id: myboard-v1-stm32f103c8
-  # mcu.part описывается в board-конфиге (D9): board — источник истины о железе
+  board: bluepill_stm32f103    # имя board-дефиниции из платформы
+  runtime: bare                # bare | freertos
 
 build:
   type: Release
-  output: myproject-stm32f103
+  # output: myproject-stm32f103  # имя артефактов (по умолчанию = product.id)
 
-features:                    # app-specific (не в hardware config)
+# Overlay: что использует ИМЕННО этот проект (D9)
+pins:
+  led: { use: led0 }           # ссылка на распаянный ресурс платы
+  # sensor: { port: GPIOB, pin: 6, mode: input, pull: up }  # своя обвязка
+
+features:                      # → CONFIG_<NAME> 0/1
   enable_log: true
   enable_cli: false
+
+params:                        # → CONFIG_<NAME> <value>
+  blink_period_ms: 500
 ```
 
-### Platform config (`config/platform/<name>_board.yml`)
+### Board (`abl-mcu-platform/boards/<name>.yml`)
 
-Описывает **железо** — частоты, память, пины. Переиспользуется между проектами.
+Board-дефиниция живёт **в платформе** (D9) и описывает **физику платы**: МК, кварц,
+частоты, память и распаянное железо (`onboard` с каноническими алиасами).
+Переиспользуется всеми проектами; проект выбирает её по имени (`product.board`).
 
 ```yaml
+board:  { name: bluepill_stm32f103, description: "Blue Pill" }
 platform: stm32f103
 mcu:
-  part: STM32F103C8T6   # → SoC-дефиниция в платформе (soc/), R3
+  part: STM32F103C6T6     # → SoC-дефиниция в платформе (soc/), R3
 cpu: cortex-m3
-frequencies:
-  hclk: 72000000
-  pclk1: 36000000
-  pclk2: 72000000
-memory:
-  flash: 65536      # 64KB
-  ram: 20480        # 20KB
-pins:
-  led:
-    port: GPIOC
-    pin: 13
-    mode: output
-  uart_tx:
-    port: GPIOA
-    pin: 9
-    mode: alt_function
-  uart_rx:
-    port: GPIOA
-    pin: 10
-    mode: alt_function
+frequencies: { hclk: 72000000, pclk1: 36000000, pclk2: 72000000 }
+memory:      { flash: 32768, ram: 10240 }
+onboard:
+  led0:      { port: GPIOC, pin: 13, mode: output, state: low }
+  usart1_tx: { port: GPIOA, pin: 9,  mode: alt_function }
+  usart1_rx: { port: GPIOA, pin: 10, mode: alt_function }
 ```
+
+Пины, которые использует приложение, описывает **проект** (overlay `pins:`), ссылаясь
+на алиасы платы (`use: led0`) или задавая свою обвязку. Как добавить плату — см.
+`abl-mcu-platform/boards/README.md`.
 
 ## Быстрый старт
 
@@ -113,16 +107,16 @@ cd myproject
 ### 2. Сборка
 
 ```bash
-./build.sh                          # Берёт config из config/*_config.yml
-./build.sh -c                       # Clean + rebuild
-./build.sh -C config/other_config.yml  # Другой конфиг
-./build.sh -p stm32f4 -t Debug      # Переопределение платформы и типа
+./build.sh                             # если в config/ один *.yml — берёт его
+./build.sh -c                          # Clean + rebuild
+./build.sh -C config/other.yml         # Другой продукт (app-конфиг)
+./build.sh -p stm32f4 -t Debug         # Переопределение платформы и типа
 ```
 
 `build.sh` автоматически:
-1. Находит `*_config.yml` в `config/`
-2. Читает платформу, тип сборки, имя проекта
-3. Проверяет тулчейн и зависимости
+1. Находит app-конфиг (`config/*.yml`)
+2. По `product.board` находит board-дефиницию в платформе (`boards/<name>.yml`)
+3. Из board берёт `mcu.part` и `platform`, проверяет тулчейн и зависимости
 4. Собирает в `build/<platform>/`
 
 ### 3. Результат
@@ -147,9 +141,9 @@ build/stm32f103/
    cd my-new-project
    ```
 
-2. Создайте конфиг:
+2. Создайте app-конфиг:
    ```bash
-   cp config/blink-lcd-stm32f103_config.yml config/myproject_config.yml
+   cp config/blink_stm32f103.yml config/myconfig.yml
    ```
 
 3. Отредактируйте `config/myproject_config.yml`:

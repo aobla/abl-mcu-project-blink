@@ -33,22 +33,27 @@ log_ok() {
 
 # ─── Dependency check ────────────────────────────────────────────────────────
 
-check_git_deps() {
-    # Check if platform-core is available
-    local core_path=""
-
+# Resolve platform repository (ABL_DEPS_PATH → lib/ → sibling для разработки)
+resolve_platform_dir() {
     if [[ -n "$ABL_DEPS_PATH" && -d "$ABL_DEPS_PATH/abl-mcu-platform" ]]; then
-        core_path="$ABL_DEPS_PATH/abl-mcu-platform"
+        echo "$ABL_DEPS_PATH/abl-mcu-platform"
     elif [[ -d "$SCRIPT_DIR/lib/abl-mcu-platform" ]]; then
-        core_path="$SCRIPT_DIR/lib/abl-mcu-platform"
-    fi
-
-    if [[ -n "$core_path" ]]; then
-        log_ok "Git dependency found: abl-mcu-platform at $core_path"
-        return 0
+        echo "$SCRIPT_DIR/lib/abl-mcu-platform"
+    elif [[ -d "$SCRIPT_DIR/../abl-mcu-platform" ]]; then
+        echo "$SCRIPT_DIR/../abl-mcu-platform"
     else
-        return 1
+        echo ""
     fi
+}
+
+check_git_deps() {
+    local core_path
+    core_path=$(resolve_platform_dir)
+    if [[ -n "$core_path" ]]; then
+        log_ok "Platform dependency found: abl-mcu-platform at $core_path"
+        return 0
+    fi
+    return 1
 }
 
 # Map platform name to toolchain binary and search paths
@@ -183,17 +188,22 @@ print(result)
 "
 }
 
-# ─── Find config file ────────────────────────────────────────────────────────
+# ─── Find app config file ────────────────────────────────────────────────────
 find_config() {
-    local configs=("${SCRIPT_DIR}/config/"*_config.yml)
+    local configs=()
+    local f
+    for f in "${SCRIPT_DIR}/config/"*.yml; do
+        [[ -f "$f" ]] && configs+=("$f")
+    done
+
     if [[ ${#configs[@]} -eq 0 ]]; then
-        log_error "No *_config.yml found in $SCRIPT_DIR/config/"
-        log_info "Create a config file: config/myproject_config.yml"
+        log_error "No app config (*.yml) found in $SCRIPT_DIR/config/"
+        log_info "Create one: config/app.yml"
         exit 1
     elif [[ ${#configs[@]} -eq 1 ]]; then
         echo "${configs[0]}"
     else
-        log_warn "Multiple config files found:"
+        log_warn "Multiple app configs found:"
         for c in "${configs[@]}"; do
             log_warn "  $(basename "$c")"
         done
@@ -240,34 +250,50 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
     exit 1
 fi
 
-log_info "Using config: $(basename "$CONFIG_FILE")"
-
-# Resolve platform config path (relative to project root)
-PLATFORM_CONFIG_REL=$(yaml_get "$CONFIG_FILE" "hardware.platform" 2>/dev/null) || true
-if [[ -n "$PLATFORM_CONFIG_REL" && "$PLATFORM_CONFIG_REL" != /* ]]; then
-    PLATFORM_CONFIG="${SCRIPT_DIR}/${PLATFORM_CONFIG_REL}"
-else
-    PLATFORM_CONFIG="$PLATFORM_CONFIG_REL"
+# Абсолютный путь (build.sh далее меняет рабочий каталог)
+if [[ "$CONFIG_FILE" != /* ]]; then
+    CONFIG_FILE="$(cd "$(dirname "$CONFIG_FILE")" && pwd)/$(basename "$CONFIG_FILE")"
 fi
 
-if [[ ! -f "$PLATFORM_CONFIG" ]]; then
-    log_error "Platform config not found: $PLATFORM_CONFIG"
-    log_info "Check hardware.platform in $(basename "$CONFIG_FILE")"
+log_info "Using app config: $(basename "$CONFIG_FILE")"
+
+# ─── Board-дефиниция живёт в платформе (D9) ──────────────────────────────────
+PRODUCT_BOARD=$(yaml_get "$CONFIG_FILE" "product.board" 2>/dev/null) || true
+if [[ -z "$PRODUCT_BOARD" ]]; then
+    log_error "product.board не задан в $(basename "$CONFIG_FILE")"
     exit 1
 fi
 
-# Read defaults from platform config
-CONFIG_PLATFORM=$(yaml_get "$PLATFORM_CONFIG" "platform" 2>/dev/null) || true
-MCU_PART=$(yaml_get "$PLATFORM_CONFIG" "mcu.part" 2>/dev/null) || true
+PLATFORM_DIR=$(resolve_platform_dir)
+if [[ -z "$PLATFORM_DIR" ]]; then
+    log_error "abl-mcu-platform не найден (ABL_DEPS_PATH / lib/ / соседний каталог)"
+    log_info "Установите зависимости: ./setup.sh -d"
+    exit 1
+fi
+
+BOARD_FILE="${PLATFORM_DIR}/boards/${PRODUCT_BOARD}.yml"
+if [[ ! -f "$BOARD_FILE" ]]; then
+    log_error "Board-дефиниция не найдена: $BOARD_FILE"
+    log_info "Доступные платы:"
+    for b in "${PLATFORM_DIR}/boards/"*.yml; do
+        [[ -f "$b" ]] && log_info "  $(basename "$b" .yml)"
+    done
+    exit 1
+fi
+log_info "Board: ${PRODUCT_BOARD}"
+
+# Read defaults from board + app config
+CONFIG_PLATFORM=$(yaml_get "$BOARD_FILE" "platform" 2>/dev/null) || true
+MCU_PART=$(yaml_get "$BOARD_FILE" "mcu.part" 2>/dev/null) || true
 CONFIG_BUILD_TYPE=$(yaml_get "$CONFIG_FILE" "build.type" 2>/dev/null) || true
-CONFIG_PROJECT_NAME=$(yaml_get "$CONFIG_FILE" "project.name" 2>/dev/null) || true
+PRODUCT_ID=$(yaml_get "$CONFIG_FILE" "product.id" 2>/dev/null) || true
 CONFIG_OUTPUT_NAME=$(yaml_get "$CONFIG_FILE" "build.output" 2>/dev/null) || true
 
 # Apply config defaults (CLI overrides later)
 PLATFORM="${PLATFORM:-$CONFIG_PLATFORM}"
 BUILD_TYPE="${BUILD_TYPE:-$CONFIG_BUILD_TYPE}"
 BUILD_TYPE="${BUILD_TYPE:-Release}"
-PROJECT_NAME="${CONFIG_PROJECT_NAME:-abl-project}"
+PROJECT_NAME="${PRODUCT_ID:-abl-project}"
 OUTPUT_NAME="${CONFIG_OUTPUT_NAME:-$PROJECT_NAME}"
 
 # ─── Parse arguments (second pass — apply overrides) ─────────────────────────
@@ -370,7 +396,8 @@ cmake "${SCRIPT_DIR}" \
     -DPLATFORM=$PLATFORM \
     -DPROJECT_NAME=$PROJECT_NAME \
     -DOUTPUT_NAME=$OUTPUT_NAME \
-    -DCONFIG_FILE="${PLATFORM_CONFIG}" \
+    -DAPP_CONFIG="${CONFIG_FILE}" \
+    -DBOARD_FILE="${BOARD_FILE}" \
     -DMCU_PART="${MCU_PART}" \
     -G "Ninja"
 

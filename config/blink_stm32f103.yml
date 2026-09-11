@@ -1,0 +1,28 @@
+# App-конфиг (продукт) — blink на Blue Pill.
+#
+# Один проект может содержать несколько таких файлов (D9): один и тот же src/
+# собирается под разные платы и параметры. Плата выбирается по имени из платформы:
+# abl-mcu-platform/boards/<product.board>.yml
+
+product:
+  id: blink-led-stm32f103
+  description: "LED blink на Blue Pill (STM32F103C6T6)"
+  version: "1.0.0"
+  board: bluepill_stm32f103
+  runtime: bare              # bare | freertos (бэкенд рантайма — Шаг 7)
+
+build:
+  type: Debug
+
+# Overlay проекта: что использует ИМЕННО эта прошивка (D9).
+#   use: <onboard-алиас платы> — ссылка на распаянный ресурс (порт/пин не знаем);
+#   { port, pin, ... }         — собственная внешняя обвязка проекта.
+pins:
+  led: { use: led0 }
+
+features:
+  enable_log: true
+  enable_cli: false
+
+params:
+  blink_period_ms: 500

@@ -91,33 +91,34 @@ else()
     message(WARNING "platform-core version not detected, assuming v1.0.0")
 endif()
 
-# ─── Config file (platform hardware config, passed from build.sh) ────────────
-if(DEFINED CONFIG_FILE AND EXISTS "${CONFIG_FILE}")
-    set(PLATFORM_CONFIG "${CONFIG_FILE}")
-else()
-    message(FATAL_ERROR "CONFIG_FILE not set or not found. Pass via -DCONFIG_FILE=... or use build.sh")
+# ─── App config (проект) + board-дефиниция (платформа) — D5/D9 ───────────────
+if(NOT DEFINED APP_CONFIG OR NOT EXISTS "${APP_CONFIG}")
+    message(FATAL_ERROR "APP_CONFIG не задан/не найден. Передайте -DAPP_CONFIG=... или используйте build.sh")
+endif()
+if(NOT DEFINED BOARD_FILE OR NOT EXISTS "${BOARD_FILE}")
+    message(FATAL_ERROR "BOARD_FILE не задан/не найден. Передайте -DBOARD_FILE=... или используйте build.sh")
 endif()
 
 # ─── Generated files — custom target so target_init can depend on them ────────
 set(GEN_DIR ${CMAKE_BINARY_DIR}/generated)
 file(MAKE_DIRECTORY ${GEN_DIR})
 
-# Generate hardware_config.h
+# hardware_config.h ← board (физика: частоты/память) + app (фичи/параметры)
 add_custom_command(
     OUTPUT ${GEN_DIR}/hardware_config.h
-    COMMAND python3 ${platformcore_SOURCE_DIR}/scripts/gen_config_v1.0.py ${PLATFORM_CONFIG}
-    DEPENDS ${PLATFORM_CONFIG}
-            ${platformcore_SOURCE_DIR}/scripts/gen_config_v1.0.py
+    COMMAND python3 ${platformcore_SOURCE_DIR}/scripts/gen_config.py ${BOARD_FILE} ${APP_CONFIG}
+    DEPENDS ${BOARD_FILE} ${APP_CONFIG}
+            ${platformcore_SOURCE_DIR}/scripts/gen_config.py
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Generating hardware_config.h"
 )
 
-# Generate pinmux (hardware_pins.h + generated_gpio_init.c)
+# pinmux ← board.onboard (физика) + app.pins (overlay проекта)
 add_custom_command(
     OUTPUT ${GEN_DIR}/hardware_pins.h ${GEN_DIR}/generated_gpio_init.c
-    COMMAND python3 ${platformcore_SOURCE_DIR}/scripts/gen_pinmux_v1.0.py ${PLATFORM_CONFIG}
-    DEPENDS ${PLATFORM_CONFIG}
-            ${platformcore_SOURCE_DIR}/scripts/gen_pinmux_v1.0.py
+    COMMAND python3 ${platformcore_SOURCE_DIR}/scripts/gen_pinmux.py ${BOARD_FILE} ${APP_CONFIG}
+    DEPENDS ${BOARD_FILE} ${APP_CONFIG}
+            ${platformcore_SOURCE_DIR}/scripts/gen_pinmux.py
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Generating pinmux"
 )
@@ -140,7 +141,6 @@ endif()
 add_firmware_target(
     NAME ${_OUTPUT_NAME}
     PLATFORM ${PLATFORM}
-    CONFIG ${PLATFORM_CONFIG}
     SOURCES src/main.c
 )
 

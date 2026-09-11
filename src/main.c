@@ -12,6 +12,6 @@ void abl_main(void)
 
     while (1) {
         abl_gpio_toggle(PIN_GET(led));
-        abl_delay_ms(500);
+        abl_delay_ms(CONFIG_BLINK_PERIOD_MS);
     }
 }

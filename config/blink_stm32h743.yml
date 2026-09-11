@@ -1,0 +1,24 @@
+# App-конфиг (продукт) — blink на DEVEBOX STM32H743.
+#
+# Тот же src/, что и у blink_stm32f103.yml: отличаются только плата и параметры
+# (демонстрация «один код — несколько продуктов», D9).
+
+product:
+  id: blink-led-stm32h743
+  description: "LED blink на DEVEBOX STM32H743VIT6"
+  version: "1.0.0"
+  board: devebox_stm32h743
+  runtime: bare              # bare | freertos (бэкенд рантайма — Шаг 7)
+
+build:
+  type: Debug
+
+pins:
+  led: { use: led0 }
+
+features:
+  enable_log: true
+  enable_cli: false
+
+params:
+  blink_period_ms: 250
