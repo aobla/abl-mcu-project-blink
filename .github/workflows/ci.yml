@@ -1,7 +1,10 @@
 name: firmware
 
 # CI проекта: прошивки под все платформы из одного src/.
-# Требует сеть (тулчейны/SDK/ESP-IDF) — на раннерах GitHub она есть.
+#
+# Платформа подключается в lib/abl-mcu-platform (штатный путь из ARCHITECTURE §5).
+# ВАЖНО: actions/checkout НЕ умеет писать за пределы $GITHUB_WORKSPACE, поэтому
+# соседний layout (../abl-mcu-platform) в CI невозможен — используем lib/.
 
 on:
   push:
@@ -31,11 +34,13 @@ jobs:
       - name: Checkout project
         uses: actions/checkout@v4
 
-      - name: Checkout platform (sibling layout)
+      # Платформа кладётся в lib/ — этот путь build.sh и setup.sh ищут первым
+      # после ABL_DEPS_PATH (см. resolve_platform_dir).
+      - name: Checkout platform into lib/
         uses: actions/checkout@v4
         with:
           repository: aobla/abl-mcu-platform
-          path: ../abl-mcu-platform
+          path: lib/abl-mcu-platform
 
       - name: Install tools
         run: |
@@ -53,22 +58,22 @@ jobs:
         run: timeout 2 ./build/native/blink-led-native || true
 
   esp32:
-    name: Build esp32 (ESP-IDF wrapper)
+    name: Build esp32c3 (ESP-IDF wrapper)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout project
         uses: actions/checkout@v4
 
-      - name: Checkout platform (sibling layout)
+      - name: Checkout platform into lib/
         uses: actions/checkout@v4
         with:
           repository: aobla/abl-mcu-platform
-          path: ../abl-mcu-platform
+          path: lib/abl-mcu-platform
 
       - name: Build with ESP-IDF
         uses: espressif/esp-idf-ci-action@v1
         with:
           esp_idf_version: v5.2.2
-          target: esp32
+          target: esp32c3
           path: .
-          command: ./build.sh -c -C config/blink_esp32.yml
+          command: ./build.sh -c -C config/blink_esp32c3.yml
