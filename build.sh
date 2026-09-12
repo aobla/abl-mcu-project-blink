@@ -143,6 +143,80 @@ check_toolchain() {
     return 1
 }
 
+# ─── Прошивка / монитор: единая команда, платформенная реализация ────────────
+# Что и как прошивать, описывает board-дефиниция (секции flash:/monitor:).
+flash_firmware() {
+    local tool
+    tool=$(yaml_get "$BOARD_FILE" "flash.tool" 2>/dev/null) || true
+
+    case "$tool" in
+        openocd)
+            local cfg="${PLATFORM_DIR}/boards/${PRODUCT_BOARD}.openocd.cfg"
+            local elf="${BUILD_DIR}/release/${OUTPUT_NAME}.elf"
+            if [[ ! -f "$cfg" ]]; then
+                log_error "OpenOCD-конфиг не найден: $cfg"
+                return 1
+            fi
+            if [[ ! -f "$elf" ]]; then
+                log_error "ELF не найден: $elf"
+                return 1
+            fi
+            if ! command -v openocd >/dev/null; then
+                log_error "openocd не установлен"
+                log_info "  sudo apt install openocd"
+                return 1
+            fi
+            log_info "Прошивка (OpenOCD): $(basename "$elf")"
+            openocd -f "$cfg" -c "program ${elf} verify reset exit"
+            ;;
+
+        avrdude)
+            local programmer port baud part hex
+            programmer=$(yaml_get "$BOARD_FILE" "flash.programmer" 2>/dev/null) || true
+            port=$(yaml_get "$BOARD_FILE" "flash.port" 2>/dev/null) || true
+            baud=$(yaml_get "$BOARD_FILE" "flash.baud" 2>/dev/null) || true
+            part=$(yaml_get "$BOARD_FILE" "cpu" 2>/dev/null) || true
+            hex="${BUILD_DIR}/release/${OUTPUT_NAME}.hex"
+            if [[ ! -f "$hex" ]]; then
+                log_error "HEX не найден: $hex"
+                return 1
+            fi
+            if ! command -v avrdude >/dev/null; then
+                log_error "avrdude не установлен"
+                log_info "  sudo apt install avrdude"
+                return 1
+            fi
+            log_info "Прошивка (avrdude): $(basename "$hex") → $port ($programmer, $part)"
+            avrdude -c "$programmer" -p "$part" -P "$port" -b "$baud" -U "flash:w:${hex}:i"
+            ;;
+
+        *)
+            log_error "Для платы '${PRODUCT_BOARD}' не задан flash.tool в board-дефиниции"
+            return 1
+            ;;
+    esac
+}
+
+monitor_target() {
+    local port baud
+    port=$(yaml_get "$BOARD_FILE" "monitor.port" 2>/dev/null) || true
+    baud=$(yaml_get "$BOARD_FILE" "monitor.baud" 2>/dev/null) || true
+    baud="${baud:-115200}"
+
+    if [[ -z "$port" ]]; then
+        log_warn "Плата не задаёт monitor.port — монитор не запущен"
+        return 0
+    fi
+
+    if command -v picocom >/dev/null; then
+        log_info "Монитор (picocom): $port @ $baud — выход: Ctrl+A Ctrl+Q"
+        picocom -b "$baud" "$port"
+    else
+        log_warn "picocom не установлен — запустите вручную:"
+        log_info "  picocom -b $baud $port      # sudo apt install picocom"
+    fi
+}
+
 # Функция справки
 show_help() {
     cat << EOF
@@ -156,6 +230,8 @@ OPTIONS:
     -p, --platform PLATFORM    Target platform (overrides config)
     -t, --type BUILD_TYPE      Build type (overrides config)
     -c, --clean                Clean build directory for this platform
+    -f, --flash                Flash the firmware after a successful build
+    -m, --monitor              Open the serial monitor (picocom / idf.py monitor)
     -h, --help                 Show this help message
 
 EXAMPLES:
@@ -217,6 +293,8 @@ CONFIG_FILE=""
 PLATFORM=""
 BUILD_TYPE=""
 CLEAN=false
+FLASH=false
+MONITOR=false
 
 # Save original args
 ORIGINAL_ARGS=("$@")
@@ -228,8 +306,15 @@ while [[ $# -gt 0 ]]; do
             CONFIG_FILE="$2"
             shift 2
             ;;
-        -p|--platform|-t|--type|-c|--clean|-h|--help)
-            shift; [[ "$1" != -* ]] && shift
+        -p|--platform|-t|--type)
+            shift 2
+            ;;
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        -c|--clean|-f|--flash|-m|--monitor)
+            shift
             ;;
         *)
             shift
@@ -318,6 +403,14 @@ while [[ $# -gt 0 ]]; do
             CLEAN=true
             shift
             ;;
+        -f|--flash)
+            FLASH=true
+            shift
+            ;;
+        -m|--monitor)
+            MONITOR=true
+            shift
+            ;;
         -h|--help)
             show_help
             exit 0
@@ -386,7 +479,14 @@ if [[ "$PLATFORM" == "esp32" ]]; then
     # shellcheck disable=SC1090
     source "$IDF_PATH/export.sh" >/dev/null
 
-    log_info "Building via idf.py (IDF project: target/esp32)"
+    IDF_ACTION="build"
+    [[ "$FLASH" == true ]] && IDF_ACTION="flash"
+
+    IDF_PORT=$(yaml_get "$BOARD_FILE" "flash.port" 2>/dev/null) || true
+    IDF_PORT_ARG=""
+    [[ -n "$IDF_PORT" ]] && IDF_PORT_ARG="-p $IDF_PORT"
+
+    log_info "Building via idf.py (IDF project: target/esp32, action: $IDF_ACTION)"
     idf.py -C "${SCRIPT_DIR}/target/esp32" -B "${BUILD_DIR}" \
         -DABL_PLATFORM_DIR="${PLATFORM_DIR}" \
         -DABL_PROJECT_DIR="${SCRIPT_DIR}" \
@@ -394,11 +494,16 @@ if [[ "$PLATFORM" == "esp32" ]]; then
         -DAPP_CONFIG="${CONFIG_FILE}" \
         -DBOARD_FILE="${BOARD_FILE}" \
         -DABL_RUNTIME="${RUNTIME}" \
-        build
+        ${IDF_PORT_ARG} \
+        ${IDF_ACTION}
+
+    if [[ "$MONITOR" == true ]]; then
+        log_info "Монитор IDF (выход: Ctrl+])"
+        idf.py -C "${SCRIPT_DIR}/target/esp32" -B "${BUILD_DIR}" ${IDF_PORT_ARG} monitor
+    fi
 
     log_info "Build completed successfully!"
     log_info "Images are located in: $BUILD_DIR"
-    log_info "Flash/monitor: idf.py -C target/esp32 -B build/esp32 flash monitor"
     exit 0
 fi
 
@@ -450,3 +555,11 @@ ninja
 
 log_info "Build completed successfully!"
 log_info "Output files are located in: $BUILD_DIR"
+
+# ─── Прошивка / монитор (единые команды, см. -f/-m) ──────────────────────────
+if [[ "$FLASH" == true ]]; then
+    flash_firmware
+fi
+if [[ "$MONITOR" == true ]]; then
+    monitor_target
+fi

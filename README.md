@@ -133,6 +133,22 @@ build/stm32f103/
     └── generated_gpio_init.c     # Сгенерировано из YAML
 ```
 
+### 4. Прошивка и монитор
+
+Единые команды для всех платформ. Что и как прошивать — в board-дефиниции
+(секции `flash:` / `monitor:`):
+
+```bash
+./build.sh -C config/blink_stm32f103.yml --flash           # OpenOCD + ST-Link
+./build.sh -C config/blink_atmega328p.yml --flash          # avrdude (порт в board)
+./build.sh -C config/blink_esp32.yml --flash --monitor     # idf.py flash + monitor
+./build.sh -C config/blink_stm32f103.yml --monitor         # picocom по monitor.port
+```
+
+Нужные инструменты: `openocd` (STM32), `avrdude` (AVR), `picocom` (монитор);
+для ESP32 всё входит в ESP-IDF. Если инструмента нет — сборка подскажет команду
+установки.
+
 ## Создание нового проекта
 
 1. Скопируйте шаблон:

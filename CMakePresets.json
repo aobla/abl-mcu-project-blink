@@ -2,146 +2,61 @@
     "version": 3,
     "configurePresets": [
         {
-            "name": "stm32f4-debug",
-            "displayName": "STM32F4 Debug",
-            "description": "Build for STM32F4 with debug configuration",
+            "name": "blink-stm32f103",
+            "displayName": "blink / STM32F103 (Blue Pill)",
+            "description": "Dev-удобство для IDE. Основной вход — ./build.sh (он сам читает YAML). Пресет предполагает sibling-репозиторий платформы.",
             "generator": "Ninja",
-            "cacheVariables": {
-                "PLATFORM": "stm32f4",
-                "CMAKE_BUILD_TYPE": "Debug"
-            }
-        },
-        {
-            "name": "stm32f4-release",
-            "displayName": "STM32F4 Release",
-            "description": "Build for STM32F4 with release configuration",
-            "generator": "Ninja",
-            "cacheVariables": {
-                "PLATFORM": "stm32f4",
-                "CMAKE_BUILD_TYPE": "Release"
-            }
-        },
-        {
-            "name": "stm32f103-debug",
-            "displayName": "STM32F103 Debug",
-            "description": "Build for STM32F103 with debug configuration",
-            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/preset-stm32f103",
             "cacheVariables": {
                 "PLATFORM": "stm32f103",
-                "CMAKE_BUILD_TYPE": "Debug"
+                "MCU_PART": "STM32F103C6T6",
+                "ABL_RUNTIME": "bare",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "PROJECT_NAME": "blink-led-stm32f103",
+                "OUTPUT_NAME": "blink-led-stm32f103",
+                "APP_CONFIG": "${sourceDir}/config/blink_stm32f103.yml",
+                "BOARD_FILE": "${sourceDir}/../abl-mcu-platform/boards/bluepill_stm32f103.yml"
             }
         },
         {
-            "name": "stm32f103-release",
-            "displayName": "STM32F103 Release",
-            "description": "Build for STM32F103 with release configuration",
+            "name": "blink-stm32h743",
+            "displayName": "blink / STM32H743 (DEVEBOX)",
+            "description": "Dev-удобство для IDE (см. blink-stm32f103).",
             "generator": "Ninja",
-            "cacheVariables": {
-                "PLATFORM": "stm32f103",
-                "CMAKE_BUILD_TYPE": "Release"
-            }
-        },
-        {
-            "name": "stm32h743-debug",
-            "displayName": "STM32H743 Debug",
-            "description": "Build for STM32H743 with debug configuration",
-            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/preset-stm32h743",
             "cacheVariables": {
                 "PLATFORM": "stm32h743",
-                "CMAKE_BUILD_TYPE": "Debug"
+                "MCU_PART": "STM32H743VIT6",
+                "ABL_RUNTIME": "bare",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "PROJECT_NAME": "blink-led-stm32h743",
+                "OUTPUT_NAME": "blink-led-stm32h743",
+                "APP_CONFIG": "${sourceDir}/config/blink_stm32h743.yml",
+                "BOARD_FILE": "${sourceDir}/../abl-mcu-platform/boards/devebox_stm32h743.yml"
             }
         },
         {
-            "name": "stm32h743-release",
-            "displayName": "STM32H743 Release",
-            "description": "Build for STM32H743 with release configuration",
+            "name": "blink-avr",
+            "displayName": "blink / ATmega328P",
+            "description": "Dev-удобство для IDE (см. blink-stm32f103).",
             "generator": "Ninja",
-            "cacheVariables": {
-                "PLATFORM": "stm32h743",
-                "CMAKE_BUILD_TYPE": "Release"
-            }
-        },
-        {
-            "name": "esp32-debug",
-            "displayName": "ESP32 Debug",
-            "description": "Build for ESP32 with debug configuration",
-            "generator": "Ninja",
-            "cacheVariables": {
-                "PLATFORM": "esp32",
-                "CMAKE_BUILD_TYPE": "Debug"
-            }
-        },
-        {
-            "name": "esp32-release",
-            "displayName": "ESP32 Release",
-            "description": "Build for ESP32 with release configuration",
-            "generator": "Ninja",
-            "cacheVariables": {
-                "PLATFORM": "esp32",
-                "CMAKE_BUILD_TYPE": "Release"
-            }
-        },
-        {
-            "name": "avr-debug",
-            "displayName": "AVR Debug",
-            "description": "Build for AVR with debug configuration",
-            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/preset-avr",
             "cacheVariables": {
                 "PLATFORM": "avr",
-                "CMAKE_BUILD_TYPE": "Debug"
-            }
-        },
-        {
-            "name": "avr-release",
-            "displayName": "AVR Release",
-            "description": "Build for AVR with release configuration",
-            "generator": "Ninja",
-            "cacheVariables": {
-                "PLATFORM": "avr",
-                "CMAKE_BUILD_TYPE": "Release"
+                "AVR_MCU": "atmega328p",
+                "F_CPU_HZ": "16000000",
+                "ABL_RUNTIME": "bare",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "PROJECT_NAME": "blink-led-atmega328p",
+                "OUTPUT_NAME": "blink-led-atmega328p",
+                "APP_CONFIG": "${sourceDir}/config/blink_atmega328p.yml",
+                "BOARD_FILE": "${sourceDir}/../abl-mcu-platform/boards/atmega328p_generic.yml"
             }
         }
     ],
     "buildPresets": [
-        {
-            "name": "stm32f4-debug-build",
-            "configurePreset": "stm32f4-debug"
-        },
-        {
-            "name": "stm32f4-release-build",
-            "configurePreset": "stm32f4-release"
-        },
-        {
-            "name": "stm32f103-debug-build",
-            "configurePreset": "stm32f103-debug"
-        },
-        {
-            "name": "stm32f103-release-build",
-            "configurePreset": "stm32f103-release"
-        },
-        {
-            "name": "stm32h743-debug-build",
-            "configurePreset": "stm32h743-debug"
-        },
-        {
-            "name": "stm32h743-release-build",
-            "configurePreset": "stm32h743-release"
-        },
-        {
-            "name": "esp32-debug-build",
-            "configurePreset": "esp32-debug"
-        },
-        {
-            "name": "esp32-release-build",
-            "configurePreset": "esp32-release"
-        },
-        {
-            "name": "avr-debug-build",
-            "configurePreset": "avr-debug"
-        },
-        {
-            "name": "avr-release-build",
-            "configurePreset": "avr-release"
-        }
+        { "name": "blink-stm32f103-build", "configurePreset": "blink-stm32f103" },
+        { "name": "blink-stm32h743-build", "configurePreset": "blink-stm32h743" },
+        { "name": "blink-avr-build", "configurePreset": "blink-avr" }
     ]
 }

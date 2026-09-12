@@ -7,9 +7,35 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PREREQ_FILE="${SCRIPT_DIR}/prerequisites.yaml"
+# Канонический источник версий vendor-SDK/тулчейнов — манифест платформы.
+# Пока платформа не найдена, используется bootstrap-файл проекта (fallback).
+MANIFEST_FILE="$PREREQ_FILE"
 TOOLCHAIN_BASE_DIR="$HOME/.local/share/abl-mcu-toolchains"
 SDK_BASE_DIR="$HOME/.local/share/abl-mcu-sdks"
 DEPS_BASE_DIR="$HOME/.local/share/abl-mcu-deps"
+
+# ─── Platform manifest resolution ────────────────────────────────────────────
+resolve_platform_dir() {
+    if [[ -n "$ABL_DEPS_PATH" && -d "$ABL_DEPS_PATH/abl-mcu-platform" ]]; then
+        echo "$ABL_DEPS_PATH/abl-mcu-platform"
+    elif [[ -d "$SCRIPT_DIR/lib/abl-mcu-platform" ]]; then
+        echo "$SCRIPT_DIR/lib/abl-mcu-platform"
+    elif [[ -d "$SCRIPT_DIR/../abl-mcu-platform" ]]; then
+        echo "$SCRIPT_DIR/../abl-mcu-platform"
+    else
+        echo ""
+    fi
+}
+
+manifest_file() {
+    local dir
+    dir=$(resolve_platform_dir)
+    if [[ -n "$dir" && -f "$dir/manifest.yml" ]]; then
+        echo "$dir/manifest.yml"
+    else
+        echo "$PREREQ_FILE"
+    fi
+}
 
 # Colors
 RED='\033[0;31m'
@@ -357,7 +383,7 @@ clone_git_repo() {
 install_sdk_from_git() {
     local sdk_name="$1"
     local install_dir
-    install_dir=$(yaml_get "$PREREQ_FILE" "sdks.${sdk_name}.install_dir" 2>/dev/null | tr -d '"' | sed "s|~|$HOME|g") || {
+    install_dir=$(yaml_get "$MANIFEST_FILE" "sdks.${sdk_name}.install_dir" 2>/dev/null | tr -d '"' | sed "s|~|$HOME|g") || {
         log_error "No install_dir for SDK: $sdk_name"
         return 1
     }
@@ -366,7 +392,7 @@ install_sdk_from_git() {
 
     # Check if it's a list of git repos or a single one
     local is_list
-    is_list=$(yaml_get_list "$PREREQ_FILE" "sdks.${sdk_name}.git" | python3 -c "
+    is_list=$(yaml_get_list "$MANIFEST_FILE" "sdks.${sdk_name}.git" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
 print('true' if isinstance(data, list) else 'false')
@@ -375,15 +401,15 @@ print('true' if isinstance(data, list) else 'false')
     if [[ "$is_list" == "true" ]]; then
         # Multi-repo SDK
         local count
-        count=$(yaml_get_list "$PREREQ_FILE" "sdks.${sdk_name}.git" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
+        count=$(yaml_get_list "$MANIFEST_FILE" "sdks.${sdk_name}.git" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
 
         for ((i=0; i<count; i++)); do
             local repo_url
-            repo_url=$(yaml_get_list "$PREREQ_FILE" "sdks.${sdk_name}.git" | python3 -c "import sys,json; print(json.load(sys.stdin)[$i]['url'])")
+            repo_url=$(yaml_get_list "$MANIFEST_FILE" "sdks.${sdk_name}.git" | python3 -c "import sys,json; print(json.load(sys.stdin)[$i]['url'])")
             local repo_tag
-            repo_tag=$(yaml_get_list "$PREREQ_FILE" "sdks.${sdk_name}.git" | python3 -c "import sys,json; print(json.load(sys.stdin)[$i]['tag'])")
+            repo_tag=$(yaml_get_list "$MANIFEST_FILE" "sdks.${sdk_name}.git" | python3 -c "import sys,json; print(json.load(sys.stdin)[$i]['tag'])")
             local repo_subdir
-            repo_subdir=$(yaml_get_list "$PREREQ_FILE" "sdks.${sdk_name}.git" | python3 -c "import sys,json; d=json.load(sys.stdin)[$i]; print(d.get('subdir',''))" 2>/dev/null) || true
+            repo_subdir=$(yaml_get_list "$MANIFEST_FILE" "sdks.${sdk_name}.git" | python3 -c "import sys,json; d=json.load(sys.stdin)[$i]; print(d.get('subdir',''))" 2>/dev/null) || true
 
             local dest="$install_dir"
             if [[ -n "$repo_subdir" ]]; then
@@ -398,12 +424,12 @@ print('true' if isinstance(data, list) else 'false')
     else
         # Single repo
         local git_url
-        git_url=$(yaml_get "$PREREQ_FILE" "sdks.${sdk_name}.git.url" 2>/dev/null | tr -d '"') || {
+        git_url=$(yaml_get "$MANIFEST_FILE" "sdks.${sdk_name}.git.url" 2>/dev/null | tr -d '"') || {
             log_error "No git URL for SDK: $sdk_name"
             return 1
         }
         local git_tag
-        git_tag=$(yaml_get "$PREREQ_FILE" "sdks.${sdk_name}.git.tag" 2>/dev/null | tr -d '"') || {
+        git_tag=$(yaml_get "$MANIFEST_FILE" "sdks.${sdk_name}.git.tag" 2>/dev/null | tr -d '"') || {
             log_error "No git tag for SDK: $sdk_name"
             return 1
         }
@@ -418,7 +444,7 @@ install_sdk_from_archive() {
     local os_key="${OS_ID}_${ARCH}"
 
     local archive_info
-    archive_info=$(yaml_get "$PREREQ_FILE" "sdks.${sdk_name}.download.${os_key}" 2>/dev/null) || {
+    archive_info=$(yaml_get "$MANIFEST_FILE" "sdks.${sdk_name}.download.${os_key}" 2>/dev/null) || {
         log_error "No download available for $sdk_name on $os_key"
         return 1
     }
@@ -429,7 +455,7 @@ install_sdk_from_archive() {
     archive_type=$(echo "$archive_info" | python3 -c "import sys,json; print(json.load(sys.stdin)['archive_type'])")
 
     local install_dir
-    install_dir=$(yaml_get "$PREREQ_FILE" "sdks.${sdk_name}.install_dir" | tr -d '"' | sed "s|~|$HOME|g")
+    install_dir=$(yaml_get "$MANIFEST_FILE" "sdks.${sdk_name}.install_dir" | tr -d '"' | sed "s|~|$HOME|g")
 
     log_step "Downloading $sdk_name..."
     log_info "URL: $url"
@@ -460,7 +486,7 @@ install_sdk_from_archive() {
 check_sdk_installed() {
     local sdk_name="$1"
     local cmake_var
-    cmake_var=$(yaml_get "$PREREQ_FILE" "sdks.${sdk_name}.cmake_var" 2>/dev/null | tr -d '"') || true
+    cmake_var=$(yaml_get "$MANIFEST_FILE" "sdks.${sdk_name}.cmake_var" 2>/dev/null | tr -d '"') || true
 
     # Check env-based cmake var
     if [[ -n "$cmake_var" ]]; then
@@ -473,12 +499,12 @@ check_sdk_installed() {
 
     # Check standard paths
     local install_dir
-    install_dir=$(yaml_get "$PREREQ_FILE" "sdks.${sdk_name}.install_dir" 2>/dev/null | tr -d '"' | sed "s|~|$HOME|g") || true
+    install_dir=$(yaml_get "$MANIFEST_FILE" "sdks.${sdk_name}.install_dir" 2>/dev/null | tr -d '"' | sed "s|~|$HOME|g") || true
 
     if [[ -n "$install_dir" && -d "$install_dir" ]]; then
         # Check for marker files or include dirs
         local include_dirs
-        include_dirs=$(yaml_get_list "$PREREQ_FILE" "sdks.${sdk_name}.include_dirs" 2>/dev/null) || true
+        include_dirs=$(yaml_get_list "$MANIFEST_FILE" "sdks.${sdk_name}.include_dirs" 2>/dev/null) || true
         if [[ -n "$include_dirs" && "$include_dirs" != "[]" ]]; then
             local first_dir
             first_dir=$(echo "$include_dirs" | python3 -c "import sys,json; print(json.load(sys.stdin)[0])")
@@ -530,7 +556,7 @@ resolve_sdk_path() {
 
     # Priority 3: ~/.local/share/abl-mcu-sdks/
     local install_dir
-    install_dir=$(yaml_get "$PREREQ_FILE" "sdks.${sdk_name}.install_dir" 2>/dev/null | tr -d '"' | sed "s|~|$HOME|g") || true
+    install_dir=$(yaml_get "$MANIFEST_FILE" "sdks.${sdk_name}.install_dir" 2>/dev/null | tr -d '"' | sed "s|~|$HOME|g") || true
     if [[ -n "$install_dir" && -d "$install_dir" ]]; then
         echo "$install_dir"
         return 0
@@ -547,7 +573,7 @@ install_sdk() {
 
     # Check if git is a list (multi-repo) or scalar
     local is_list
-    is_list=$(yaml_get_list "$PREREQ_FILE" "sdks.${sdk_name}.git" 2>/dev/null | python3 -c "
+    is_list=$(yaml_get_list "$MANIFEST_FILE" "sdks.${sdk_name}.git" 2>/dev/null | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
 print('true' if isinstance(data, list) else 'false')
@@ -567,7 +593,7 @@ print('true' if isinstance(data, list) else 'false')
 
     # Single git repo
     local git_url
-    git_url=$(yaml_get "$PREREQ_FILE" "sdks.${sdk_name}.git.url" 2>/dev/null | tr -d '"') || true
+    git_url=$(yaml_get "$MANIFEST_FILE" "sdks.${sdk_name}.git.url" 2>/dev/null | tr -d '"') || true
     if [[ -n "$git_url" && "$git_url" != "null" ]]; then
         install_sdk_from_git "$sdk_name"
         return $?
@@ -714,7 +740,7 @@ setup_platform() {
     log_step "═══════════════════════════════════════════════════"
 
     local toolchains_json
-    toolchains_json=$(yaml_get_list "$PREREQ_FILE" "platforms.${platform}") || {
+    toolchains_json=$(yaml_get_list "$MANIFEST_FILE" "platforms.${platform}") || {
         log_error "No toolchain definition for platform: $platform"
         return 1
     }
@@ -879,7 +905,7 @@ setup_platform_sdk() {
 
     # Try platform-specific map first (e.g. stm32_sdk_map for stm32)
     if [[ "$base_platform" == "stm32" ]]; then
-        sdk_name=$(yaml_get "$PREREQ_FILE" "platforms.stm32_sdk_map.${sub_platform}" 2>/dev/null | tr -d '"') || true
+        sdk_name=$(yaml_get "$MANIFEST_FILE" "platforms.stm32_sdk_map.${sub_platform}" 2>/dev/null | tr -d '"') || true
     fi
 
     if [[ -z "$sdk_name" || "$sdk_name" == "null" ]]; then
@@ -924,6 +950,10 @@ main() {
     if [[ "$INSTALL_DEPS" == true ]]; then
         setup_dependencies
     fi
+
+    # Платформа на месте → читаем её манифест (canonical SDK/toolchain pins)
+    MANIFEST_FILE=$(manifest_file)
+    log_info "Manifest: $MANIFEST_FILE"
 
     # Setup specific SDK if requested
     if [[ -n "$SPECIFIC_SDK" ]]; then

@@ -33,8 +33,10 @@ if(DEFINED PLATFORM)
         set(CMAKE_TOOLCHAIN_FILE "${_PCORE_DIR}/cmake/toolchains/stm32-gcc.cmake")
         set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
     elseif(PLATFORM STREQUAL "esp32")
-        set(CMAKE_TOOLCHAIN_FILE "${_PCORE_DIR}/cmake/toolchains/esp32-clang.cmake")
-        set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+        # ESP32 builds through the ESP-IDF wrapper, not through plain CMake (D3).
+        message(FATAL_ERROR
+            "ESP32 собирается через обёртку ESP-IDF (target/esp32). "
+            "Используйте: ./build.sh -C config/blink_esp32.yml")
     elseif(PLATFORM STREQUAL "avr")
         if(NOT DEFINED AVR_MCU OR AVR_MCU STREQUAL "")
             set(AVR_MCU "atmega328p")
