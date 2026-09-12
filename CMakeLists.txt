@@ -105,24 +105,23 @@ endif()
 set(GEN_DIR ${CMAKE_BINARY_DIR}/generated)
 file(MAKE_DIRECTORY ${GEN_DIR})
 
-# hardware_config.h ← board (физика: частоты/память) + app (фичи/параметры)
+# One entry point for all generators (board + app overlay).
+# Templates are the single source of truth: templates/*.jinja (ARCHITECTURE §9).
 add_custom_command(
     OUTPUT ${GEN_DIR}/hardware_config.h
-    COMMAND python3 ${platformcore_SOURCE_DIR}/scripts/gen_config.py ${BOARD_FILE} ${APP_CONFIG}
+           ${GEN_DIR}/hardware_pins.h
+           ${GEN_DIR}/generated_gpio_init.c
+    COMMAND python3 ${platformcore_SOURCE_DIR}/scripts/generate.py ${BOARD_FILE} ${APP_CONFIG}
     DEPENDS ${BOARD_FILE} ${APP_CONFIG}
+            ${platformcore_SOURCE_DIR}/scripts/generate.py
             ${platformcore_SOURCE_DIR}/scripts/gen_config.py
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMENT "Generating hardware_config.h"
-)
-
-# pinmux ← board.onboard (физика) + app.pins (overlay проекта)
-add_custom_command(
-    OUTPUT ${GEN_DIR}/hardware_pins.h ${GEN_DIR}/generated_gpio_init.c
-    COMMAND python3 ${platformcore_SOURCE_DIR}/scripts/gen_pinmux.py ${BOARD_FILE} ${APP_CONFIG}
-    DEPENDS ${BOARD_FILE} ${APP_CONFIG}
             ${platformcore_SOURCE_DIR}/scripts/gen_pinmux.py
+            ${platformcore_SOURCE_DIR}/scripts/abl_codegen.py
+            ${platformcore_SOURCE_DIR}/templates/hardware_config.h.jinja
+            ${platformcore_SOURCE_DIR}/templates/hardware_pins.h.jinja
+            ${platformcore_SOURCE_DIR}/templates/generated_gpio_init.c.jinja
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMENT "Generating pinmux"
+    COMMENT "Generating hardware_config.h + pinmux"
 )
 
 # Custom target to trigger generation

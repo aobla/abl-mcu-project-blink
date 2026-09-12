@@ -25,21 +25,22 @@ set(ABL_RT_DIR  "${ABL_PLATFORM_DIR}/runtime")
 set(ABL_SCRIPTS "${ABL_PLATFORM_DIR}/scripts")
 set(GEN_DIR     "${CMAKE_BINARY_DIR}/generated")
 
-# ─── Code generation: same board + overlay generators as other platforms ─────
+# ─── Code generation: same single entry point as the plain CMake build ───────
 add_custom_command(
     OUTPUT  "${GEN_DIR}/hardware_config.h"
-    COMMAND python3 "${ABL_SCRIPTS}/gen_config.py" "${BOARD_FILE}" "${APP_CONFIG}"
-    DEPENDS "${BOARD_FILE}" "${APP_CONFIG}" "${ABL_SCRIPTS}/gen_config.py"
+            "${GEN_DIR}/hardware_pins.h"
+            "${GEN_DIR}/generated_gpio_init.c"
+    COMMAND python3 "${ABL_SCRIPTS}/generate.py" "${BOARD_FILE}" "${APP_CONFIG}"
+    DEPENDS "${BOARD_FILE}" "${APP_CONFIG}"
+            "${ABL_SCRIPTS}/generate.py"
+            "${ABL_SCRIPTS}/gen_config.py"
+            "${ABL_SCRIPTS}/gen_pinmux.py"
+            "${ABL_SCRIPTS}/abl_codegen.py"
+            "${ABL_PLATFORM_DIR}/templates/hardware_config.h.jinja"
+            "${ABL_PLATFORM_DIR}/templates/hardware_pins.h.jinja"
+            "${ABL_PLATFORM_DIR}/templates/generated_gpio_init.c.jinja"
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
-    COMMENT "Generating hardware_config.h"
-)
-
-add_custom_command(
-    OUTPUT  "${GEN_DIR}/hardware_pins.h" "${GEN_DIR}/generated_gpio_init.c"
-    COMMAND python3 "${ABL_SCRIPTS}/gen_pinmux.py" "${BOARD_FILE}" "${APP_CONFIG}"
-    DEPENDS "${BOARD_FILE}" "${APP_CONFIG}" "${ABL_SCRIPTS}/gen_pinmux.py"
-    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
-    COMMENT "Generating pinmux"
+    COMMENT "Generating hardware_config.h + pinmux"
 )
 
 add_custom_target(abl_generated DEPENDS
