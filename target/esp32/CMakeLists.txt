@@ -22,6 +22,17 @@ if(NOT DEFINED ABL_RUNTIME OR ABL_RUNTIME STREQUAL "")
     set(ABL_RUNTIME "freertos")
 endif()
 
+# ─── Target chip (IDF_TARGET) ────────────────────────────────────────────────
+# The chip is a property of the board (ESP32 vs ESP32-C3 vs ESP32-S3 are different
+# architectures with different toolchains), so it comes from the board config as
+# -DIDF_TARGET. Setting it before including project.cmake makes idf.py select the
+# right toolchain and soc component.
+if(NOT DEFINED IDF_TARGET OR IDF_TARGET STREQUAL "")
+    message(FATAL_ERROR "IDF_TARGET is not set (idf_target in the board config). "
+                        "Pass it as -DIDF_TARGET=esp32c3, or use ./build.sh")
+endif()
+set(IDF_TARGET "${IDF_TARGET}" CACHE STRING "ESP-IDF target chip" FORCE)
+
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
 string(MAKE_C_IDENTIFIER "${ABL_PRODUCT_ID}" _abl_project)

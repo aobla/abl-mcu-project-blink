@@ -1,0 +1,24 @@
+# App-конфиг (продукт) — blink на ESP32-C3 SuperMini.
+#
+# Тот же src/, что и у STM32/AVR; отличается плата (ESP32-C3, RISC-V) и рантайм.
+# Чип берётся из board-дефиниции (idf_target: esp32c3).
+
+product:
+  id: blink-led-esp32c3
+  description: "LED blink на ESP32-C3 SuperMini (ESP-IDF, FreeRTOS)"
+  version: "1.0.0"
+  board: esp32c3_supermini
+  runtime: freertos
+
+build:
+  type: Debug
+
+pins:
+  led: { use: led0 }        # GPIO8, активный низкий
+
+features:
+  enable_log: true
+  enable_cli: false
+
+params:
+  blink_period_ms: 500

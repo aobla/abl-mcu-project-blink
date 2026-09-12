@@ -376,6 +376,8 @@ CONFIG_PLATFORM=$(yaml_get "$BOARD_FILE" "platform" 2>/dev/null) || true
 MCU_PART=$(yaml_get "$BOARD_FILE" "mcu.part" 2>/dev/null) || true
 BOARD_CPU=$(yaml_get "$BOARD_FILE" "cpu" 2>/dev/null) || true
 BOARD_FREQ=$(yaml_get "$BOARD_FILE" "oscillator.freq_hz" 2>/dev/null) || true
+# ESP32 family: the chip is a board property (esp32 / esp32c3 / esp32s3 ...)
+BOARD_IDF_TARGET=$(yaml_get "$BOARD_FILE" "idf_target" 2>/dev/null) || true
 CONFIG_BUILD_TYPE=$(yaml_get "$CONFIG_FILE" "build.type" 2>/dev/null) || true
 CONFIG_RUNTIME=$(yaml_get "$CONFIG_FILE" "product.runtime" 2>/dev/null) || true
 PRODUCT_ID=$(yaml_get "$CONFIG_FILE" "product.id" 2>/dev/null) || true
@@ -490,8 +492,23 @@ if [[ "$PLATFORM" == "esp32" ]]; then
     IDF_PORT_ARG=""
     [[ -n "$IDF_PORT" ]] && IDF_PORT_ARG="-p $IDF_PORT"
 
+    if [[ -z "$BOARD_IDF_TARGET" ]]; then
+        log_error "В board-дефиниции '${PRODUCT_BOARD}' не задан idf_target"
+        log_info "Пример: idf_target: esp32c3   (esp32, esp32s3, ...)"
+        exit 1
+    fi
+    log_info "ESP-IDF target: $BOARD_IDF_TARGET (board: $PRODUCT_BOARD)"
+    if [[ -n "$IDF_PORT" ]]; then
+        log_info "Порт: $IDF_PORT"
+        if [[ ! -e "$IDF_PORT" ]]; then
+            log_warn "Порт $IDF_PORT не существует. Доступные:"
+            ls /dev/ttyACM* /dev/ttyUSB* 2>/dev/null | sed 's/^/  /' || log_warn "  (не найдено ни одного)"
+        fi
+    fi
+
     log_info "Building via idf.py (IDF project: target/esp32, action: $IDF_ACTION)"
     idf.py -C "${SCRIPT_DIR}/target/esp32" -B "${BUILD_DIR}" \
+        -DIDF_TARGET="${BOARD_IDF_TARGET}" \
         -DABL_PLATFORM_DIR="${PLATFORM_DIR}" \
         -DABL_PROJECT_DIR="${SCRIPT_DIR}" \
         -DABL_PRODUCT_ID="${PRODUCT_ID}" \
