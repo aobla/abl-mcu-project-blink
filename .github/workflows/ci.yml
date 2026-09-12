@@ -1,0 +1,74 @@
+name: firmware
+
+# CI проекта: прошивки под все платформы из одного src/.
+# Требует сеть (тулчейны/SDK/ESP-IDF) — на раннерах GitHub она есть.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: stm32f103
+            config: config/blink_stm32f103.yml
+            packages: gcc-arm-none-eabi
+          - platform: stm32h743
+            config: config/blink_stm32h743.yml
+            packages: gcc-arm-none-eabi
+          - platform: avr
+            config: config/blink_atmega328p.yml
+            packages: gcc-avr avr-libc
+          - platform: native
+            config: config/blink_native.yml
+            packages: ""
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Checkout platform (sibling layout)
+        uses: actions/checkout@v4
+        with:
+          repository: aobla/abl-mcu-platform
+          path: ../abl-mcu-platform
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build python3 python3-yaml python3-jinja2 ${{ matrix.packages }}
+
+      - name: Install SDKs / toolchains (from the platform manifest)
+        run: ./setup.sh -p ${{ matrix.platform }}
+
+      - name: Build firmware
+        run: ./build.sh -c -C ${{ matrix.config }}
+
+      - name: Smoke-run the native firmware
+        if: matrix.platform == 'native'
+        run: timeout 2 ./build/native/blink-led-native || true
+
+  esp32:
+    name: Build esp32 (ESP-IDF wrapper)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Checkout platform (sibling layout)
+        uses: actions/checkout@v4
+        with:
+          repository: aobla/abl-mcu-platform
+          path: ../abl-mcu-platform
+
+      - name: Build with ESP-IDF
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.2.2
+          target: esp32
+          path: .
+          command: ./build.sh -c -C config/blink_esp32.yml

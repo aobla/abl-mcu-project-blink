@@ -52,9 +52,11 @@ project(${_PROJECT_NAME} C CXX ASM)
 string(TOUPPER "${PLATFORM}" PLATFORM_UPPER)
 add_compile_definitions(PLATFORM_${PLATFORM_UPPER})
 
-# STM32 HAL конфигурируется SoC (hal_conf живёт в soc/); define нужен по всему
-# проекту, т.к. app.h подтягивает vendor-заголовки ради макросов пинов.
-add_compile_definitions(USE_HAL_DRIVER)
+# STM32 HAL is configured by the SoC (hal_conf lives in soc/); the define is
+# needed app-wide because app.h pulls the vendor header for the pin macros.
+if(PLATFORM MATCHES "^stm32")
+    add_compile_definitions(USE_HAL_DRIVER)
+endif()
 
 # ─── Resolve platform-core ───────────────────────────────────────────────────
 # Priority 1: ABL_DEPS_PATH

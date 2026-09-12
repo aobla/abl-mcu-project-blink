@@ -72,6 +72,10 @@ get_toolchain_info() {
             echo "xtensa-esp32-elf-gcc"
             echo "esp-idf"
             ;;
+        native)
+            echo "cc"
+            echo ""
+            ;;
         *)
             echo ""
             echo ""
@@ -431,7 +435,7 @@ if [[ -z "$PLATFORM" ]]; then
 fi
 
 # Проверка поддерживаемых платформ
-SUPPORTED_PLATFORMS=("stm32f4" "stm32f103" "stm32h743" "esp32" "avr")
+SUPPORTED_PLATFORMS=("stm32f4" "stm32f103" "stm32h743" "esp32" "avr" "native")
 if [[ ! " ${SUPPORTED_PLATFORMS[@]} " =~ " ${PLATFORM} " ]]; then
     log_error "Unsupported platform: $PLATFORM"
     log_info "Supported platforms: ${SUPPORTED_PLATFORMS[*]}"
