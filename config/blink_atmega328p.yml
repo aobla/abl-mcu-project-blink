@@ -1,0 +1,23 @@
+# App-конфиг (продукт) — blink на ATmega328P.
+#
+# Тот же src/, что и у STM32-продуктов: отличаются плата, рантайм и параметры.
+
+product:
+  id: blink-led-atmega328p
+  description: "LED blink на ATmega328P (16 МГц)"
+  version: "1.0.0"
+  board: atmega328p_generic
+  runtime: bare              # AVR — только кооперативный bare-бэкенд
+
+build:
+  type: Debug
+
+pins:
+  led: { use: led0 }
+
+features:
+  enable_log: false          # 2 KB RAM: экономить
+  enable_cli: false
+
+params:
+  blink_period_ms: 500
