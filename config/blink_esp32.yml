@@ -1,0 +1,24 @@
+# App-конфиг (продукт) — blink на ESP32.
+#
+# Собирается через обёртку ESP-IDF (D3): ./build.sh -C config/blink_esp32.yml
+# Тот же src/, что и у STM32/AVR; отличается плата и рантайм.
+
+product:
+  id: blink-led-esp32
+  description: "LED blink на ESP32 (ESP-IDF 5.2, FreeRTOS)"
+  version: "1.0.0"
+  board: esp32_generic
+  runtime: freertos          # на ESP32 всегда есть FreeRTOS
+
+build:
+  type: Debug
+
+pins:
+  led: { use: led0 }
+
+features:
+  enable_log: true
+  enable_cli: false
+
+params:
+  blink_period_ms: 500

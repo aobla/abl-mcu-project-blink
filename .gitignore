@@ -36,3 +36,9 @@ platformcore-src/
 lib/
 # Windows ADS leftover
 *.Zone.Identifier
+
+# ESP-IDF wrapper artifacts (target/esp32)
+target/esp32/sdkconfig
+target/esp32/sdkconfig.old
+target/esp32/dependencies.lock
+target/esp32/managed_components/

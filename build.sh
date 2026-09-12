@@ -367,6 +367,41 @@ if ! check_git_deps; then
     log_info "  ./setup.sh -d"
 fi
 
+# ─── ESP32: сборка через обёртку ESP-IDF (D3) ────────────────────────────────
+if [[ "$PLATFORM" == "esp32" ]]; then
+    IDF_PATH="${IDF_PATH:-$HOME/.local/share/abl-mcu-sdks/esp-idf}"
+    if [[ ! -f "$IDF_PATH/export.sh" ]]; then
+        log_error "ESP-IDF не найден: $IDF_PATH"
+        log_info "Установите: ./setup.sh -p esp32"
+        exit 1
+    fi
+    log_info "ESP-IDF: $IDF_PATH"
+
+    if [[ $CLEAN == true && -d "$BUILD_DIR" ]]; then
+        log_info "Cleaning build directory for platform: $PLATFORM..."
+        rm -rf "$BUILD_DIR"
+    fi
+
+    # export.sh даёт toolchain (xtensa-esp-elf) и python-env IDF
+    # shellcheck disable=SC1090
+    source "$IDF_PATH/export.sh" >/dev/null
+
+    log_info "Building via idf.py (IDF project: target/esp32)"
+    idf.py -C "${SCRIPT_DIR}/target/esp32" -B "${BUILD_DIR}" \
+        -DABL_PLATFORM_DIR="${PLATFORM_DIR}" \
+        -DABL_PROJECT_DIR="${SCRIPT_DIR}" \
+        -DABL_PRODUCT_ID="${PRODUCT_ID}" \
+        -DAPP_CONFIG="${CONFIG_FILE}" \
+        -DBOARD_FILE="${BOARD_FILE}" \
+        -DABL_RUNTIME="${RUNTIME}" \
+        build
+
+    log_info "Build completed successfully!"
+    log_info "Images are located in: $BUILD_DIR"
+    log_info "Flash/monitor: idf.py -C target/esp32 -B build/esp32 flash monitor"
+    exit 0
+fi
+
 # Проверка тулчейна
 if ! check_toolchain "$PLATFORM"; then
     log_error "Toolchain not found for platform: $PLATFORM"
