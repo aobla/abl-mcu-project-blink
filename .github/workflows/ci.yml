@@ -41,10 +41,16 @@ jobs:
 
       # Платформа кладётся в lib/ — этот путь build.sh и setup.sh ищут первым
       # после ABL_DEPS_PATH (см. resolve_platform_dir).
+      #
+      # ВАЖНО: ref указывается явно. Без него actions/checkout берёт ветку по
+      # умолчанию репозитория платформы, а там (main) лежит только README —
+      # и сборка падает с "Board-дефиниция не найдена".
+      # Позже, когда работа переедет в main, ref можно убрать.
       - name: Checkout platform into lib/
         uses: actions/checkout@v4
         with:
           repository: aobla/abl-mcu-platform
+          ref: dev
           path: lib/abl-mcu-platform
 
       - name: Install tools

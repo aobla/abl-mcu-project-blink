@@ -1,5 +1,12 @@
 cmake_minimum_required(VERSION 3.20)
 
+# ─── Platform revision (used by the FetchContent fallback) ───────────────────
+# Keep in sync with `dependencies.platform-core.git.tag` in prerequisites.yaml.
+# Override with -DABL_PLATFORM_REF=<branch|tag>.
+if(NOT DEFINED ABL_PLATFORM_REF)
+    set(ABL_PLATFORM_REF "dev")
+endif()
+
 # ─── Project name (from CLI or default) ──────────────────────────────────────
 if(DEFINED PROJECT_NAME)
     set(_PROJECT_NAME "${PROJECT_NAME}")
@@ -77,13 +84,16 @@ elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/lib/abl-mcu-platform/CMakeLists.txt")
     add_subdirectory(${platformcore_SOURCE_DIR} ${CMAKE_BINARY_DIR}/_deps/platformcore-build)
     message(STATUS "Using local platform-core: ${platformcore_SOURCE_DIR}")
 else()
-    # FetchContent fallback
-    message(STATUS "Local platform-core not found — fetching from git")
+    # FetchContent fallback.
+    # GIT_TAG must match the branch/tag that carries the platform code. It is kept
+    # in sync with `dependencies.platform-core.git.tag` in prerequisites.yaml;
+    # `main` currently holds only the initial commit, so the working branch is used.
+    message(STATUS "Local platform-core not found — fetching from git (${ABL_PLATFORM_REF})")
     include(FetchContent)
     FetchContent_Declare(
         platformcore
         GIT_REPOSITORY https://github.com/aobla/abl-mcu-platform.git
-        GIT_TAG main
+        GIT_TAG ${ABL_PLATFORM_REF}
     )
     FetchContent_MakeAvailable(platformcore)
 endif()
